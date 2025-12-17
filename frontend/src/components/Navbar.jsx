@@ -1,171 +1,93 @@
-import { assets } from "../assets/assets.js";
-import { Link, NavLink, useNavigate } from "react-router-dom";
-import { ShopContext } from "../context/ShopContext.jsx";
-import React, { useContext, useState } from "react";
+import React, { useState } from 'react'
+import { Link } from 'react-router-dom'
+import { FiMenu, FiX } from 'react-icons/fi'
+import { Mountain } from 'lucide-react'
 
 const Navbar = () => {
-  const navigate = useNavigate();
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
 
-  const {
-    showSearch,
-    setShowSearch,
-    getCartCount,
-    setToken,
-    setCartItems,
-    token,
-  } = useContext(ShopContext);
+  const toggleMobileMenu = () => {
+    setMobileMenuOpen(!mobileMenuOpen)
+  }
 
-  const [visible, setVisible] = useState(false);
-
-  const logout = async () => {
-    localStorage.removeItem("token");
-    navigate("/login");
-
-    setToken("");
-    setCartItems({});
-  };
+  const navLinks = [
+    { path: '/', label: 'Home' },
+    { path: '/general', label: 'General Tour' },
+    { path: '/wildlife', label: 'Wildlife Tour' },
+    { path: '/winter-sports', label: 'Winter Sports' },
+    { path: '/birding', label: 'Birding Tour' },
+    { path: '/about', label: 'About' },
+    { path: '/faq', label: 'FAQ' },
+  ]
 
   return (
-    <div className="flex items-center justify-between py-5 font-medium">
-      <img
-        onClick={() => navigate("/")}
-        src={assets.logo}
-        alt=""
-        className="w-36 cursor-pointer"
-      />
-
-      <ul className="hidden gap-5 text-sm text-gray-700 sm:flex">
-        <NavLink
-          to="/"
-          className="flex cursor-pointer flex-col items-center gap-1"
-        >
-          <p>HOME</p>
-          <hr className="hidden h-[2px] w-2/4 border-none bg-gray-700" />
-        </NavLink>
-        <NavLink
-          to="/collection"
-          className="flex cursor-pointer flex-col items-center gap-1"
-        >
-          <p> COLLECTION</p>
-          <hr className="hidden h-[2px] w-2/4 border-none bg-gray-700" />
-        </NavLink>
-        <NavLink
-          to="/about"
-          className="flex cursor-pointer flex-col items-center gap-1"
-        >
-          <p> ABOUT </p>
-          <hr className="hidden h-[2px] w-2/4 border-none bg-gray-700" />
-        </NavLink>
-        <NavLink
-          to="/contact"
-          className="flex cursor-pointer flex-col items-center gap-1"
-        >
-          <p>CONTACT</p>
-          <hr className="hidden h-[2px] w-2/4 border-none bg-gray-700" />
-        </NavLink>
-      </ul>
-
-      <div className="flex items-center gap-6">
-        <img
-          onClick={() => setShowSearch(!showSearch)}
-          src={assets.search_icon}
-          alt=""
-          className="w-5 cursor-pointer"
-        />
-
-        <div className="group relative">
-          <img
-            onClick={() => (token ? null : navigate("/login"))}
-            src={assets.profile_icon}
-            className="w-5 cursor-pointer"
-            alt=""
-          />
-          {/* DROPDOWN */}
-          {token && (
-            <div className="dropdown-menu absolute right-0 hidden pt-4 group-hover:block">
-              <div className="flex w-36 flex-col gap-2 rounded bg-slate-100 px-5 py-3 text-gray-500">
-                <p
-                  onClick={() => navigate("/profile")}
-                  className="cursor-pointer hover:text-black"
-                >
-                  My Profile
-                </p>
-                <p
-                  onClick={() => navigate("/orders")}
-                  className="cursor-pointer hover:text-black"
-                >
-                  Orders
-                </p>
-                <p onClick={logout} className="cursor-pointer hover:text-black">
-                  Logout
-                </p>
-              </div>
+    <nav className="bg-gradient-to-r from-blue-600 to-blue-800 text-white shadow-lg sticky top-0 z-50">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="flex justify-between items-center h-16">
+          {/* Logo */}
+          <Link to="/" className="flex items-center space-x-2">
+            <div className="flex items-center gap-2">
+              <Mountain size={22} />
+              <span className="text-2xl font-bold">LadakhTrails</span>
             </div>
-          )}
-        </div>
+            {/* <span className="text-sm hidden sm:inline">LadakhTrails</span> */}
+          </Link>
 
-        <Link to="/cart" className="relative">
-          <img src={assets.cart_icon} className="w-5 min-w-5" alt="" />
-          <p className="absolute right-[-5px] bottom-[-5px] aspect-square w-4 rounded-full bg-black text-center text-[8px] leading-4 text-white">
-            {getCartCount()}
-          </p>
-        </Link>
-        <img
-          onClick={() => setVisible(true)}
-          src={assets.menu_icon}
-          alt=""
-          className="w-5 cursor-pointer sm:hidden"
-        />
-      </div>
-
-      {/* {SIde bar menu for small screen} */}
-      <div
-        onClick={() => setVisible(false)}
-        className={`absolute top-0 right-0 bottom-0 overflow-hidden border-l border-gray-300 bg-white transition-all ${
-          visible ? "w-full" : "w-0"
-        }`}
-      >
-        <div className="flex flex-col text-gray-600">
-          <div
-            onClick={() => setVisible(false)}
-            className="flex cursor-pointer items-center gap-4 p-3"
-          >
-            <img src={assets.dropdown_icon} className="h-4 rotate-180" alt="" />
-            <p>Back</p>
+          {/* Desktop Navigation */}
+          <div className="hidden md:flex space-x-8">
+            {navLinks.map((link) => (
+              <Link
+                key={link.path}
+                to={link.path}
+                className="hover:text-yellow-300 transition duration-300 text-sm font-medium"
+              >
+                {link.label}
+              </Link>
+            ))}
           </div>
 
-          <NavLink
-            className="sidebar-link border border-gray-200 py-2 pl-6"
-            onClick={() => setVisible(false)}
-            to="/"
+          {/* Contact Button */}
+          <a
+            href="#contact"
+            className="hidden md:block bg-yellow-400 text-blue-900 px-6 py-2 rounded-lg font-semibold hover:bg-yellow-300 transition duration-300"
           >
-            HOME
-          </NavLink>
-          <NavLink
-            className="sidebar-link border border-gray-200 py-2 pl-6"
-            onClick={() => setVisible(false)}
-            to="/collection"
-          >
-            COLLECTION
-          </NavLink>
-          <NavLink
-            className="sidebar-link border border-gray-200 py-2 pl-6"
-            onClick={() => setVisible(false)}
-            to="/about"
-          >
-            ABOUT
-          </NavLink>
-          <NavLink
-            className="sidebar-link border border-gray-200 py-2 pl-6"
-            onClick={() => setVisible(false)}
-            to="/contact"
-          >
-            CONTACT
-          </NavLink>
-        </div>
-      </div>
-    </div>
-  );
-};
+            Contact
+          </a>
 
-export default Navbar;
+          {/* Mobile Menu Button */}
+          <button
+            className="md:hidden text-2xl"
+            onClick={toggleMobileMenu}
+          >
+            {mobileMenuOpen ? <FiX /> : <FiMenu />}
+          </button>
+        </div>
+
+        {/* Mobile Navigation */}
+        {mobileMenuOpen && (
+          <div className="md:hidden bg-blue-700 pb-4">
+            {navLinks.map((link) => (
+              <Link
+                key={link.path}
+                to={link.path}
+                className="block px-4 py-2 hover:bg-blue-600 transition duration-300"
+                onClick={() => setMobileMenuOpen(false)}
+              >
+                {link.label}
+              </Link>
+            ))}
+            <a
+              href="#contact"
+              className="block px-4 py-2 hover:bg-blue-600 transition duration-300"
+              onClick={() => setMobileMenuOpen(false)}
+            >
+              Contact
+            </a>
+          </div>
+        )}
+      </div>
+    </nav>
+  )
+}
+
+export default Navbar

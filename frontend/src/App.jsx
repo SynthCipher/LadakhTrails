@@ -1,42 +1,56 @@
-import React from "react";
-import { Route, Routes } from "react-router-dom";
-import Home from "./pages/Home";
-import About from "./pages/About";
-import Cart from "./pages/Cart";
-import Collection from "./pages/Collection";
-import Contact from "./pages/Contact";
-import Login from "./pages/Login";
-import Orders from "./pages/Orders";
-import PlaceOrder from "./pages/PlaceOrder";
-import Product from "./pages/Product";
-import Navbar from "./components/Navbar";
-import MyProfile from "./pages/MyProfile";
-import SearchBar from "./components/SearchBar";
-import Footer from "./components/Footer";
-import { ToastContainer } from "react-toastify";
-import Verify from "./pages/Verify";
-const App = () => {
-  return (
-    <div className="px-4 sm:px-[5vw] md:px-[7vw] lg:px-[9vh]">
-      <ToastContainer />
-      <Navbar />
-      <SearchBar />
-      <Routes>
-        <Route path="/" element={<Home />}></Route>
-        <Route path="/about" element={<About />}></Route>
-        <Route path="/cart" element={<Cart />}></Route>
-        <Route path="/collection" element={<Collection />}></Route>
-        <Route path="/contact" element={<Contact />}></Route>
-        <Route path="/login" element={<Login />}></Route>
-        <Route path="/orders" element={<Orders />}></Route>
-        <Route path="/place-order" element={<PlaceOrder />}></Route>
-        <Route path="/product/:productId" element={<Product />}></Route>
-        <Route path="/profile" element={<MyProfile />}></Route>
-        <Route path="/verify" element={<Verify />}></Route>
-      </Routes>
-      <Footer />
-    </div>
-  );
-};
+import React from 'react'
+import { Routes, Route, useLocation } from 'react-router-dom'
+import { ToastContainer } from 'react-toastify'
+import 'react-toastify/dist/ReactToastify.css'
+import Navbar from './components/Navbar'
+import Footer from './components/Footer'
+import Home from './pages/Home'
+import General from './pages/General'
+import Wildlife from './pages/Wildlife'
+import WinterSports from './pages/WinterSports'
+import Birding from './pages/Birding'
+import AboutUs from './pages/AboutUs'
+import FAQ from './pages/FAQ'
+import TermsConditions from './pages/TermsConditions'
+import AdminTours from './pages/AdminTours'
+import './index.css'
+import ScrollToTop from './components/ScrollToTop'
 
-export default App;
+function App() {
+    const location = useLocation()
+    const isAdminRoute = location.pathname.startsWith('/admin')
+
+    return (
+        <div className="min-h-screen flex flex-col">
+            {!isAdminRoute && <Navbar />}
+            <main className="flex-grow">
+                <ScrollToTop />
+                <Routes>
+                    <Route path="/" element={<Home />} />
+                    <Route path="/general" element={<General />} />
+                    <Route path="/wildlife" element={<Wildlife />} />
+                    <Route path="/winter-sports" element={<WinterSports />} />
+                    <Route path="/birding" element={<Birding />} />
+                    <Route path="/about" element={<AboutUs />} />
+                    <Route path="/faq" element={<FAQ />} />
+                    <Route path="/terms" element={<TermsConditions />} />
+                    <Route path="/admin/tours" element={<AdminTours />} />
+                </Routes>
+            </main>
+            {!isAdminRoute && <Footer />}
+            <ToastContainer
+                position="bottom-right"
+                autoClose={3000}
+                hideProgressBar={false}
+                newestOnTop={false}
+                closeOnClick
+                rtl={false}
+                pauseOnFocusLoss
+                draggable
+                pauseOnHover
+            />
+        </div>
+    )
+}
+
+export default App

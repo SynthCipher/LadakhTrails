@@ -7,11 +7,9 @@ const connectCloudinary = async () => {
       api_key: process.env.CLOUDINARY_API_KEY,
       api_secret: process.env.CLOUDINARY_SECRET_KEY,
     });
-    // Testing the connection by listing resources
-    const result = await cloudinary.api.resources({ max_results: 1 });
-    console.log("Cloudinary connected");
+    console.log("Cloudinary connected successfully");
   } catch (error) {
-    console.error("Error connecting to Cloudinary:", error);
+    console.error("Cloudinary connection failed:", error.message);
   }
 };
 

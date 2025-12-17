@@ -1,51 +1,81 @@
-import React from "react";
-import { assets } from "../assets/assets";
-import { Link } from "react-router-dom";
+import React from 'react'
+import { Facebook, Instagram, Twitter, Mail, Phone, MapPin, Mountain } from 'lucide-react'
 
 const Footer = () => {
+  const currentYear = new Date().getFullYear()
+
   return (
-    <div>
-      <div className="flex flex-col sm:grid grid-cols-[3fr_1fr_1fr] gap-14 my-10 mt-40 text-sm">
-        <div>
-          <img src={assets.logo} className="mb-5 w-32" alt="" />
-          <p className="w-full md:w-2/3 text-gray-600">
-            {" "}
-            Lorem ipsum dolor sit amet consectetur adipisicing elit. Reiciendis,
-            eaque.Lorem ipsum, dolor sit amet consectetur adipisicing elit.
-            Nostrum, harum cum quas temporibus expedita ad?
+    <footer className="bg-gray-900 text-gray-300">
+      {/* Main Footer Content */}
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
+          {/* About Section */}
+          <div>
+            <h3 className="text-white text-lg font-bold mb-4"><Mountain className="inline-block mr-2" />LadakhTrails</h3>
+            <p className="text-sm leading-relaxed">
+              Experience the breathtaking beauty of Ladakh with our expertly curated tour packages. Adventure awaits!
+            </p>
+          </div>
+
+          {/* Tour Types */}
+          <div>
+            <h3 className="text-white text-lg font-bold mb-4">Our Tours</h3>
+            <ul className="space-y-2 text-sm">
+              <li><a href="/" className="hover:text-blue-400 transition">General Tour</a></li>
+              <li><a href="/wildlife" className="hover:text-blue-400 transition">Wildlife Tour</a></li>
+              <li><a href="/winter-sports" className="hover:text-blue-400 transition">Winter Sports</a></li>
+              <li><a href="/birding" className="hover:text-blue-400 transition">Birding Tour</a></li>
+            </ul>
+          </div>
+
+          {/* Quick Links */}
+          <div>
+            <h3 className="text-white text-lg font-bold mb-4">Quick Links</h3>
+            <ul className="space-y-2 text-sm">
+              <li><a href="/" className="hover:text-blue-400 transition">Home</a></li>
+              <li><a href="/about" className="hover:text-blue-400 transition">About Us</a></li>
+              <li><a href="/faq" className="hover:text-blue-400 transition">FAQ</a></li>
+              <li><a href="/terms" className="hover:text-blue-400 transition">Terms & Conditions</a></li>
+            </ul>
+          </div>
+
+          {/* Contact Info */}
+          <div>
+            <h3 className="text-white text-lg font-bold mb-4">Contact Us</h3>
+            <div className="space-y-3 text-sm">
+              <div className="flex items-center space-x-3">
+                <Phone className="text-blue-400" size={18} />
+                <a href="tel:+91-XXXXX-XXXXX" className="hover:text-blue-400 transition">+91-XXXXX-XXXXX</a>
+              </div>
+              <div className="flex items-center space-x-3">
+                <Mail className="text-blue-400" size={18} />
+                <a href="mailto:info@ladakhtrails.com" className="hover:text-blue-400 transition">info@ladakhtrails.com</a>
+              </div>
+              <div className="flex items-start space-x-3">
+                <MapPin className="text-blue-400 mt-1 flex-shrink-0" size={18} />
+                <p>Leh, Ladakh, India</p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Divider */}
+        <div className="border-t border-gray-700 my-8"></div>
+
+        {/* Social Media & Copyright */}
+        <div className="flex flex-col md:flex-row justify-between items-center gap-4">
+          <div className="flex space-x-6 mb-4 md:mb-0">
+            <a href="#facebook" className="hover:text-blue-400 transition" aria-label="Facebook"><Facebook size={20} /></a>
+            <a href="#instagram" className="hover:text-pink-400 transition" aria-label="Instagram"><Instagram size={20} /></a>
+            <a href="#twitter" className="hover:text-blue-300 transition" aria-label="Twitter"><Twitter size={20} /></a>
+          </div>
+          <p className="text-sm text-center">
+            &copy; {currentYear} LadakhTrails. All rights reserved. | Designed & Deployed by <a href="https://onela.in" target="_blank" rel="noopener noreferrer" className="text-blue-400 hover:text-blue-300 transition font-semibold">Onela</a>
           </p>
         </div>
-        <div>
-          <p className="text-xl font-medium mb-5">COMPANY</p>
-          <ul className="flex flex-col gap-1 text-gray-600">
-          <Link to="/" onClick={()=>scrollTo(0,0)}>
-              <li>Home</li>
-            </Link>
-            <Link to="/about" onClick={()=>scrollTo(0,0)}>
-              <li>About us</li>
-            </Link>
-            <Link>
-              <li>Delivery</li>
-            </Link>
-            <Link>
-              <li>Privacy policy</li>
-            </Link>
-          </ul>
-        </div>
-        <div>
-            <p className="text-xl font-medium mb-5">GET IN TOUCH</p>
-            <ul className="flex flex-col gap-1 text-gray-600">
-                <li>+91 9682574824</li>
-                <li>jigmat@gmail.com</li>
-                </ul>
-        </div>
       </div>
-      <div>
-        <hr className="text-gray-400"/>
-        <p className="py-3 pb-5 text-xs text-gray-500 text-left" >Copyright 2025 @SynthCipher - All Right Reserved.</p>
-      </div>
-    </div>
-  );
-};
+    </footer>
+  )
+}
 
-export default Footer;
+export default Footer
