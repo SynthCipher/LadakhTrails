@@ -82,7 +82,7 @@ const UpcomingTours = () => {
             duration: `${tour.startDate} to ${tour.endDate}`,
             season: '',
             price: tour.price,
-
+            tourType: tour.tourType,      // ✅ add this line
             difficulty: '',
             highlights: (tour.highlights || '').split(',').map(h => h.trim()),
             inclusions: [

@@ -1,12 +1,29 @@
-import React from 'react'
+import React, { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import UpcomingTours from '../components/UpcomingTours'
-import { assets } from '../assets/assets.js'
 import { Users, Shield, Globe } from 'lucide-react'
-
+import { assets } from '../assets/assets.js'
 const Home = () => {
+  const heroImages = [
+    assets.homePageMainImage1,
+    assets.homePageMainImage2,
+    assets.homePageMainImage3,
+    assets.homePageMainImage4,
+    assets.homePageMainImage5,
+    assets.homePageMainImage6,
+  ].filter(Boolean)
+
+  const [heroIndex, setHeroIndex] = useState(0)
+
+  useEffect(() => {
+    if (!heroImages.length) return
+    const interval = setInterval(() => {
+      setHeroIndex((prev) => (prev + 1) % heroImages.length)
+    }, 2000)
+    return () => clearInterval(interval)
+  }, [heroImages.length])
   const tours = [
-    {
+  {
       id: 1,
       name: 'General Tour',
       description: 'Explore the stunning landscapes, historic monasteries, and vibrant culture of Ladakh',
@@ -42,9 +59,19 @@ const Home = () => {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* Hero Section */}
-      <section className="bg-gradient-to-r from-blue-600 to-blue-800 text-white py-20 px-4">
-        <div className="max-w-7xl mx-auto text-center">
+      {/* Hero Section with sliding background images */}
+      <section
+        className="relative text-white py-20 px-4 overflow-hidden"
+        style={heroImages.length ? {
+          backgroundImage: `url(${heroImages[heroIndex]})`,
+          backgroundSize: 'cover',
+          backgroundPosition: 'center',
+        } : {}}
+      >
+        {/* Blue gradient overlay to keep existing look */}
+        <div className="absolute inset-0 bg-gradient-to-r from-blue-900/80 via-blue-700/80 to-blue-600/70"></div>
+
+        <div className="relative max-w-7xl mx-auto text-center">
           <h1 className="text-5xl md:text-6xl font-bold mb-6">Welcome to LadakhTrails</h1>
           <p className="text-xl md:text-2xl mb-8 leading-relaxed">
             Discover the majestic beauty of Ladakh with our expertly curated tour packages

@@ -1,6 +1,6 @@
-import React, { useState, useEffect, useCallback } from 'react'
+import React, { useState, useEffect, useCallback, useRef } from 'react'
 import axios from 'axios'
-import { Trash2, Edit2, X, Eye, Upload, LogOut, Plus, Mountain, Home, Locate, LocationEditIcon } from 'lucide-react'
+import { Trash2, Edit2, X, Eye, Upload, LogOut, Plus, Mountain, Home, Locate, LocationEditIcon, ClipboardList } from 'lucide-react'
 import { ToastContainer, toast } from 'react-toastify'
 import 'react-toastify/dist/ReactToastify.css'
 import { useContext } from 'react'
@@ -33,6 +33,9 @@ const AdminTours = () => {
     const [selectedTourId, setSelectedTourId] = useState(null)
     const [bookingsLoading, setBookingsLoading] = useState(false)
     const [bookingCounts, setBookingCounts] = useState({})
+    const [selectedTour, setSelectedTour] = useState(null);
+
+
 
     // today's date in YYYY-MM-DD for date input min attributes
     const today = new Date().toISOString().split('T')[0]
@@ -168,6 +171,8 @@ const AdminTours = () => {
             [name]: value
         }))
     }
+
+    const imageInputRef = useRef(null)
 
     const handleImageChange = (e) => {
         const file = e.target.files[0]
@@ -369,7 +374,7 @@ const AdminTours = () => {
 
             <div className="max-w-7xl mx-auto px-4 py-8">
                 {/* Add/Edit Tour Section */}
-                <div className="bg-white rounded-2xl shadow-lg p-8 mb-8">
+                <div className="bg-white rounded-2xl shadow-lg p-8  max-sm:px-4  mb-8">
                     <h2 className="text-2xl font-bold mb-6 text-gray-800 flex items-center gap-2">
                         <Plus size={24} className="text-blue-600" />
                         {editingId ? 'Edit Tour' : 'Add New Tour'}
@@ -509,37 +514,64 @@ const AdminTours = () => {
                         </div>
 
                         {/* Image Upload Section */}
-                        <div className="border-2 border-dashed border-blue-300 rounded-lg p-6 bg-blue-50">
-                            <label className="text-sm font-semibold text-gray-700 mb-3 flex items-center gap-2">
+                        <div className="border-2 border-dashed border-blue-300 rounded-lg p-4 bg-blue-50">
+                            <p className="text-sm font-semibold text-gray-700 mb-2 flex items-center gap-2">
                                 <Upload size={20} className="text-blue-600" />
                                 Tour Image
-                            </label>
+                            </p>
+
+                            {/* Hidden native input */}
                             <input
+                                ref={imageInputRef}
                                 type="file"
                                 onChange={handleImageChange}
                                 accept="image/*"
-                                className="w-full"
-                                required
+                                className="hidden"
+                                required={!editingId && !imagePreview}
                             />
-                            {imagePreview && (
-                                <div className="mt-4 relative">
-                                    <img
-                                        src={imagePreview}
-                                        alt="Preview"
-                                        className="w-40 h-40 object-cover rounded-lg"
-                                    />
-                                    <button
-                                        type="button"
-                                        onClick={() => {
-                                            setImageFile(null)
-                                            setImagePreview(null)
-                                        }}
-                                        className="absolute top-2 right-2 bg-red-500 text-white rounded-full p-1 hover:bg-red-600"
-                                    >
-                                        <X size={16} />
-                                    </button>
-                                </div>
-                            )}
+
+                            {/* Clickable area fills the whole box */}
+                            <button
+                                type="button"
+                                onClick={() => imageInputRef.current && imageInputRef.current.click()}
+                                className="w-full h-40 md:h-48 flex flex-col items-center justify-center rounded-lg border-2 border-dashed border-blue-200 bg-blue-100/60 hover:bg-blue-100 hover:border-blue-400 transition"
+                            >
+                                {imagePreview ? (
+                                    <div className="relative w-full h-full">
+                                        <img
+                                            src={imagePreview}
+                                            alt="Preview"
+                                            className="w-full h-full object-cover rounded-lg"
+                                        />
+                                        <div className="absolute inset-0 bg-black/30 flex items-center justify-center rounded-lg opacity-0 hover:opacity-100 transition">
+                                            <span className="text-white font-semibold text-sm">
+                                                Click to change image
+                                            </span>
+                                        </div>
+                                        <button
+                                            type="button"
+                                            onClick={(e) => {
+                                                e.stopPropagation()
+                                                setImageFile(null)
+                                                setImagePreview(null)
+                                            }}
+                                            className="absolute top-2 right-2 bg-red-500 text-white rounded-full p-1 hover:bg-red-600"
+                                        >
+                                            <X size={16} />
+                                        </button>
+                                    </div>
+                                ) : (
+                                    <div className="flex flex-col items-center justify-center text-center px-4">
+                                        <Upload size={32} className="text-blue-500 mb-2" />
+                                        <p className="text-sm font-semibold text-blue-900">
+                                            Click anywhere here to upload an image
+                                        </p>
+                                        <p className="text-xs text-blue-700 mt-1">
+                                            JPG, PNG, WEBP • Recommended size 1200×800
+                                        </p>
+                                    </div>
+                                )}
+                            </button>
                         </div>
 
                         <div className="flex gap-4 pt-4">
@@ -578,11 +610,13 @@ const AdminTours = () => {
                 </div>
 
                 {/* Tours List Section */}
-                <div className="bg-white rounded-2xl shadow-lg p-8">
+                <div className="bg-white rounded-2xl shadow-lg p-8 max-sm:px-4">
                     <div className="flex justify-between items-center mb-6">
-                        <h2 className="text-2xl font-bold text-gray-800">
-                            <LocationEditIcon /> Tours ({tours.length})
+                        <h2 className="flex items-center gap-2 text-2xl font-bold text-gray-800">
+                            <LocationEditIcon className="w-8 h-8" />
+                            <span>Tours ({tours.length})</span>
                         </h2>
+
                         <button
                             onClick={fetchTours}
                             className="bg-green-500 hover:bg-green-600 text-white px-6 py-2 rounded-lg font-semibold transition"
@@ -594,7 +628,7 @@ const AdminTours = () => {
                     {tours.length === 0 ? (
                         <p className="text-gray-600 text-center py-12">No tours added yet. Create your first tour above!</p>
                     ) : (
-                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 ">
                             {tours.map(tour => (
                                 <div
                                     key={tour._id}
@@ -677,114 +711,215 @@ const AdminTours = () => {
                                         {/* Action Buttons */}
                                         <div className="flex gap-2">
                                             <button
-                                                onClick={() => fetchTourBookings(tour._id)}
-                                                className="flex-1 flex items-center justify-center gap-2 bg-purple-500 hover:bg-purple-600 text-white py-2 rounded-lg font-semibold transition"
+                                                onClick={() => {
+                                                    setSelectedTour(tour);          // ✅ ADD THIS LINE
+                                                    fetchTourBookings(tour._id);    // existing
+                                                }}
+                                            className="flex-1 flex items-center justify-center gap-2 bg-purple-500 hover:bg-purple-600 text-white py-2 rounded-lg font-semibold transition"
                                             >
-                                                <Eye size={18} />
-                                                Applicants
-                                            </button>
-                                            <button
-                                                onClick={() => handleEditTour(tour)}
-                                                className="px-4 py-2 bg-yellow-500 hover:bg-yellow-600 text-white rounded-lg transition"
-                                            >
-                                                <Edit2 size={18} />
-                                            </button>
-                                            <button
-                                                onClick={() => handleDeleteTour(tour._id)}
-                                                className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg transition"
-                                            >
-                                                <Trash2 size={18} />
-                                            </button>
-                                        </div>
+                                            <Eye size={18} />
+                                            Applicants
+                                        </button>
+                                        <button
+                                            onClick={() => {
+                                                handleEditTour(tour);
+                                                window.scrollTo({ top: 0, behavior: "smooth" });
+                                            }}
+                                            className="px-4 py-2 bg-yellow-500 hover:bg-yellow-600 text-white rounded-lg transition"
+                                        >
+                                            <Edit2 size={18} />
+                                        </button>
+
+                                        <button
+                                            onClick={() => handleDeleteTour(tour._id)}
+                                            className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg transition"
+                                        >
+                                            <Trash2 size={18} />
+                                        </button>
                                     </div>
                                 </div>
-                            ))}
-                        </div>
-                    )}
-                </div>
-            </div>
-
-            {/* Bookings Modal */}
-            {selectedTourBookings !== null && (
-                <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-                    <div className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full max-h-96 overflow-auto">
-                        <div className="sticky top-0 bg-gradient-to-r from-purple-600 to-purple-800 text-white p-6 flex justify-between items-center">
-                            <h3 className="text-2xl font-bold">📋 Tour Applicants</h3>
-                            <button
-                                onClick={() => setSelectedTourBookings(null)}
-                                className="p-1 hover:bg-purple-700 rounded transition"
-                            >
-                                <X size={24} />
-                            </button>
-                        </div>
-
-                        <div className="p-6">
-                            {bookingsLoading ? (
-                                <p className="text-center text-gray-600">Loading applicants...</p>
-                            ) : selectedTourBookings.length === 0 ? (
-                                <p className="text-center text-gray-600">No applicants for this tour yet.</p>
-                            ) : (
-                                <div className="space-y-4">
-                                    <p className="font-semibold text-gray-800 bg-blue-50 p-3 rounded-lg">
-                                        Total Applicants: {selectedTourBookings.length}
-                                    </p>
-                                    {selectedTourBookings.map((booking, idx) => (
-                                        <div key={booking._id} className="border border-gray-200 p-4 rounded-lg bg-gray-50 hover:bg-gray-100 transition">
-                                            <div className="flex justify-between items-start mb-3">
-                                                <div>
-                                                    <h4 className="font-bold text-gray-800">#{idx + 1} {booking.fullName}</h4>
-                                                    <p className="text-sm text-gray-600">Applied on {new Date(booking.createdAt).toLocaleDateString()}</p>
-                                                </div>
-                                                <span className={`px-3 py-1 rounded-full text-xs font-semibold ${booking.status === 'confirmed' ? 'bg-green-100 text-green-800' :
-                                                    booking.status === 'cancelled' ? 'bg-red-100 text-red-800' :
-                                                        'bg-yellow-100 text-yellow-800'
-                                                    }`}>
-                                                    {booking.status}
-                                                </span>
-                                            </div>
-                                            <div className="grid grid-cols-2 gap-2 text-sm text-gray-700">
-                                                <p><span className="font-semibold">Email:</span> {booking.email}</p>
-                                                <p><span className="font-semibold">Phone:</span> {booking.phone}</p>
-                                                <p><span className="font-semibold">People:</span> {booking.numberOfPeople}</p>
-                                                <p><span className="font-semibold">Date:</span> {booking.startDate ? `${formatShortDate(booking.startDate)} — ${formatShortDate(booking.endDate) || ''}` : booking.tourDate}</p>
-                                                {booking.durationDays && <p><span className="font-semibold">Duration:</span> {booking.durationDays} days</p>}
-                                                {booking.specialRequests && (
-                                                    <p className="col-span-2"><span className="font-semibold">Requests:</span> {booking.specialRequests}</p>
-                                                )}
-                                                <div className="col-span-2 mt-3">
-                                                    <label className="text-xs font-semibold mr-2">Status:</label>
-                                                    <select
-                                                        value={booking.status}
-                                                        onChange={(e) => changeBookingStatus(booking._id, e.target.value)}
-                                                        className="p-2 rounded-md border border-gray-300"
-                                                    >
-                                                        <option value="pending">pending</option>
-                                                        <option value="confirmed">confirmed</option>
-                                                        <option value="cancelled">cancelled</option>
-                                                    </select>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    ))}
                                 </div>
-                            )}
-                        </div>
+                    ))}
+                </div>
+                    )}
+            </div>
+        </div>
+
+            {/* Bookings Modal */ }
+    {
+        selectedTourBookings !== null && (
+            <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+                <div className="bg-white rounded-3xl shadow-2xl w-full max-w-5xl h-[90vh] flex flex-col">
+
+                    {/* Header */}
+                    <div className="sticky top-0 z-10 bg-gradient-to-r from-purple-600 to-purple-800 text-white px-8 py-6 flex justify-between items-center rounded-t-3xl">
+                        <h3 className="flex flex-col gap-1 text-2xl font-bold">
+                            {/* Top line */}
+                            <div className="flex items-center gap-3">
+                                <ClipboardList className="w-7 h-7 text-white" />
+                                <span>Tour Applicants</span>
+                                <span className="text-sm bg-white/20 px-3 py-1 rounded-full">
+                                    {selectedTourBookings.length}
+                                </span>
+                            </div>
+
+                            {/* Tour name line */}
+                            <span className="text-sm font-medium text-purple-100 ml-10">
+                                {selectedTour?.tourName}
+                            </span>
+                        </h3>
+
+
+                        <button
+                            onClick={() => setSelectedTourBookings(null)}
+                            className="p-2 rounded-full hover:bg-white/20 transition"
+                        >
+                            <X size={26} />
+                        </button>
+                    </div>
+
+                    {/* Content */}
+                    <div className="flex-1 overflow-y-auto px-8 max-sm:px-3 py-6 space-y-5">
+
+                        {bookingsLoading ? (
+                            <p className="text-center text-gray-600">Loading applicants...</p>
+                        ) : selectedTourBookings.length === 0 ? (
+                            <p className="text-center text-gray-600">
+                                No applicants for this tour yet.
+                            </p>
+                        ) : (
+                            selectedTourBookings.map((booking, idx) => (
+                                <div
+                                    key={booking._id}
+                                    className="bg-gray-50 border border-gray-200 rounded-2xl p-6 hover:shadow-md transition"
+                                >
+                                    {/* Card Header */}
+                                    <div className="flex justify-between items-start mb-4">
+                                        <div>
+                                            <h4 className="text-lg font-bold text-gray-800">
+                                                #{idx + 1} {booking.fullName}
+                                            </h4>
+                                            <p className="text-sm text-gray-500">
+                                                Applied on {new Date(booking.createdAt).toLocaleDateString()}
+                                            </p>
+                                        </div>
+
+                                        <span
+                                            className={`px-4 py-1 rounded-full text-xs font-semibold ${booking.status === "confirmed"
+                                                ? "bg-green-100 text-green-800"
+                                                : booking.status === "cancelled"
+                                                    ? "bg-red-100 text-red-800"
+                                                    : "bg-yellow-100 text-yellow-800"
+                                                }`}
+                                        >
+                                            {booking.status.toUpperCase()}
+                                        </span>
+                                    </div>
+
+                                    {/* Details Grid */}
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm text-gray-700">
+
+                                        <p><span className="font-semibold">Email:</span> {booking.email}</p>
+                                        <p><span className="font-semibold">Phone:</span> {booking.phone}</p>
+                                        <p><span className="font-semibold">People:</span> {booking.numberOfPeople}</p>
+
+                                        <p>
+                                            <span className="font-semibold">Dates:</span>{" "}
+                                            {booking.startDate
+                                                ? `${formatShortDate(booking.startDate)} — ${formatShortDate(booking.endDate) || ""}`
+                                                : booking.tourDate}
+                                        </p>
+
+                                        {booking.durationDays && (
+                                            <p>
+                                                <span className="font-semibold">Duration:</span>{" "}
+                                                {booking.durationDays} days
+                                            </p>
+                                        )}
+
+                                        <p>
+                                            <span className="font-semibold">Payment Option:</span>{" "}
+                                            {booking.paymentOption === "partial"
+                                                ? "30% Advance + Remaining at Start"
+                                                : booking.paymentOption === "full"
+                                                    ? "Full Payment Online"
+                                                    : "Offline / Not Set"}
+                                        </p>
+
+                                        <p>
+                                            <span className="font-semibold">Payment Status:</span>{" "}
+                                            {booking.paymentStatus || "pending"}
+                                        </p>
+
+                                        {typeof booking.totalAmount === "number" && (
+                                            <p>
+                                                <span className="font-semibold">Total Amount:</span> ₹{booking.totalAmount}
+                                            </p>
+                                        )}
+
+                                        {typeof booking.advanceAmount === "number" && (
+                                            <p>
+                                                <span className="font-semibold">Advance Paid:</span> ₹{booking.advanceAmount}
+                                                {booking.paymentOption === "partial" &&
+                                                    booking.isAdvanceNonRefundable && (
+                                                        <span className="text-xs text-red-600 font-semibold">
+                                                            {" "} (non-refundable)
+                                                        </span>
+                                                    )}
+                                            </p>
+                                        )}
+
+                                        {typeof booking.remainingAmount === "number" && booking.remainingAmount > 0 && (
+                                            <p>
+                                                <span className="font-semibold">Remaining:</span> ₹{booking.remainingAmount}
+                                            </p>
+                                        )}
+
+                                        {booking.specialRequests && (
+                                            <p className="md:col-span-2 bg-white p-3 rounded-lg border">
+                                                <span className="font-semibold">Special Requests:</span>{" "}
+                                                {booking.specialRequests}
+                                            </p>
+                                        )}
+                                    </div>
+
+                                    {/* Status Action */}
+                                    <div className="mt-5 flex items-center gap-3">
+                                        <label className="text-sm font-semibold">Update Status:</label>
+                                        <select
+                                            value={booking.status}
+                                            onChange={(e) =>
+                                                changeBookingStatus(booking._id, e.target.value)
+                                            }
+                                            className="px-3 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-purple-500"
+                                        >
+                                            <option value="pending">Pending</option>
+                                            <option value="confirmed">Confirmed</option>
+                                            <option value="cancelled">Cancelled</option>
+                                        </select>
+                                    </div>
+                                </div>
+                            ))
+                        )}
                     </div>
                 </div>
-            )}
+            </div>
+        )
+    }
 
-            <ToastContainer
-                position="bottom-right"
-                autoClose={3000}
-                hideProgressBar={false}
-                newestOnTop={false}
-                closeOnClick
-                rtl={false}
-                pauseOnFocusLoss
-                draggable
-                pauseOnHover
-            />
-        </div>
+
+    <ToastContainer
+        position="bottom-right"
+        autoClose={3000}
+        hideProgressBar={false}
+        newestOnTop={false}
+        closeOnClick
+        rtl={false}
+        pauseOnFocusLoss
+        draggable
+        pauseOnHover
+    />
+        </div >
     )
 }
 

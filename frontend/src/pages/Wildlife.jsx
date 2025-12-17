@@ -7,7 +7,22 @@ import { useContext } from 'react'
 
 const Wildlife = () => {
     const [isBookingOpen, setIsBookingOpen] = useState(false)
+    const [tours, setTours] = useState([])
     const [activeTour, setActiveTour] = useState(null)
+
+    const formatShortDate = (isoDate) => {
+        try {
+            if (!isoDate) return ''
+            const d = new Date(isoDate)
+            if (isNaN(d)) return isoDate
+            const day = d.getDate()
+            const month = d.toLocaleString('default', { month: 'short' })
+            const year = String(d.getFullYear()).slice(-2)
+            return `${day} ${month} '${year}`
+        } catch {
+            return isoDate
+        }
+    }
     const context = useContext(AppContext)
     const backendUrl = context?.backendUrl || 'http://localhost:8081'
 
@@ -16,7 +31,13 @@ const Wildlife = () => {
             try {
                 const res = await axios.get(`${backendUrl}/api/tour/type/${encodeURIComponent('Wildlife')}`, { params: { planned: true } })
                 const d = res.data
-                if (d.success && d.tours && d.tours.length > 0) setActiveTour(d.tours[0])
+                if (d.success && d.tours && d.tours.length > 0) {
+                    setTours(d.tours)
+                    setActiveTour(d.tours[0])
+                } else {
+                    setTours([])
+                    setActiveTour(null)
+                }
             } catch (e) {
                 console.error(e)
                 if (e.code === 'ERR_NETWORK' || e.request) {
@@ -30,9 +51,11 @@ const Wildlife = () => {
     }, [])
 
     const tourDetails = {
-        duration: activeTour ? `${activeTour.startDate} to ${activeTour.endDate}` : '10-14 Days',
+        duration: activeTour
+            ? `${formatShortDate(activeTour.startDate)} to ${formatShortDate(activeTour.endDate)}`
+            : '10-14 Days',
         season: 'January - March, August - October',
-        price: '₹60,000 - ₹90,000',
+        price: activeTour ? activeTour.price : '₹60,000 - ₹90,000',
         difficulty: 'Challenging',
         highlights: [
             'Snow Leopard Tracking - Track the elusive big cat',
@@ -100,25 +123,57 @@ const Wildlife = () => {
 
                         {/* Right Column */}
                         <div className="space-y-8">
-                            {/* Duration & Price */}
+                            {/* Active tour image + quick book */}
+                            <div className="bg-white rounded-lg shadow-lg overflow-hidden border border-orange-100">
+                                {activeTour?.image ? (
+                                    <img
+                                        src={activeTour.image}
+                                        alt={activeTour.tourName}
+                                        className="w-full h-56 object-cover"
+                                    />
+                                ) : (
+                                    <div className="w-full h-56 bg-gray-100 flex items-center justify-center text-gray-500 text-sm">
+                                        No image available
+                                    </div>
+                                )}
+                                <div className="p-4 flex items-center justify-between">
+                                    <div>
+                                        <p className="font-semibold text-gray-800">{activeTour ? activeTour.tourName : 'Wildlife Tour'}</p>
+                                        {activeTour && (
+                                            <p className="text-sm text-gray-600">
+                                                {formatShortDate(activeTour.startDate)} - {formatShortDate(activeTour.endDate)}
+                                            </p>
+                                        )}
+                                    </div>
+                                    <button
+                                        onClick={() => activeTour && setIsBookingOpen(true)}
+                                        disabled={!activeTour}
+                                        className="bg-orange-600 text-white px-4 py-2 rounded-md font-semibold hover:bg-orange-700 transition disabled:opacity-50"
+                                    >
+                                        Book
+                                    </button>
+                                </div>
+                            </div>
+
+                            {/* Duration & Price (overview) */}
                             <div className="bg-white p-8 rounded-lg shadow-lg border-l-4 border-orange-600">
-                                <h3 className="text-2xl font-bold mb-4 text-gray-800">Tour Details</h3>
+                                <h3 className="text-2xl font-bold mb-4 text-gray-800">Tour Details (Overview)</h3>
                                 <div className="space-y-4">
                                     <div>
                                         <p className="text-gray-600">Duration</p>
-                                        <p className="text-2xl font-bold text-orange-600">10-14 Days</p>
+                                        <p className="text-2xl font-bold text-orange-600">{tourDetails.duration}</p>
                                     </div>
                                     <div>
                                         <p className="text-gray-600">Best Season</p>
-                                        <p className="text-2xl font-bold text-orange-600">January - March, August - October</p>
+                                        <p className="text-2xl font-bold text-orange-600">{tourDetails.season}</p>
                                     </div>
                                     <div>
-                                        <p className="text-gray-600">Price Range</p>
-                                        <p className="text-2xl font-bold text-orange-600">₹60,000 - ₹90,000</p>
+                                        <p className="text-gray-600">Price</p>
+                                        <p className="text-2xl font-bold text-orange-600">{tourDetails.price}</p>
                                     </div>
                                     <div>
                                         <p className="text-gray-600">Difficulty Level</p>
-                                        <p className="text-2xl font-bold text-orange-600">Challenging</p>
+                                        <p className="text-2xl font-bold text-orange-600">{tourDetails.difficulty}</p>
                                     </div>
                                 </div>
                             </div>
@@ -135,16 +190,34 @@ const Wildlife = () => {
                                 </ul>
                             </div>
 
-                            {/* CTA Button */}
-                            {activeTour ? (
-                                <button
-                                    onClick={() => setIsBookingOpen(true)}
-                                    className="w-full bg-orange-600 text-white py-4 rounded-lg font-bold text-lg hover:bg-orange-700 transition duration-300">
-                                    Book This Tour
-                                </button>
-                            ) : (
-                                <div className="w-full py-4 rounded-lg text-center text-gray-600">Not scheduled at the moment</div>
-                            )}
+                            {/* Upcoming scheduled Wildlife tours list */}
+                            <div className="bg-white p-8 rounded-lg shadow-lg">
+                                <h3 className="text-xl font-bold mb-4 text-gray-800">Upcoming Scheduled Wildlife Tours</h3>
+                                {tours.length > 0 ? (
+                                    <div className="space-y-3">
+                                        {tours.map((tour) => (
+                                            <button
+                                                key={tour._id}
+                                                onClick={() => {
+                                                    setActiveTour(tour)
+                                                    setIsBookingOpen(true)
+                                                }}
+                                                className="w-full text-left border border-orange-200 rounded-lg px-4 py-3 hover:bg-orange-50 transition flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2"
+                                            >
+                                                <div>
+                                                    <p className="font-semibold text-gray-800">{tour.tourName}</p>
+                                                    <p className="text-sm text-gray-600">
+                                                        {formatShortDate(tour.startDate)} - {formatShortDate(tour.endDate)}
+                                                    </p>
+                                                </div>
+                                                <p className="text-sm font-bold text-orange-600">₹{tour.price}</p>
+                                            </button>
+                                        ))}
+                                    </div>
+                                ) : (
+                                    <p className="text-gray-600 text-sm">No upcoming Wildlife tours are scheduled at the moment.</p>
+                                )}
+                            </div>
                         </div>
                     </div>
                 </section>

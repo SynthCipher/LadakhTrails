@@ -50,6 +50,30 @@ const bookingSchema = new mongoose.Schema(
       type: String,
       default: "",
     },
+    // payment-related fields
+    paymentOption: {
+      type: String,
+      enum: ["partial", "full", "none"],
+      default: "none",
+    },
+    totalAmount: {
+      type: Number, // total tour cost in INR
+    },
+    advanceAmount: {
+      type: Number, // amount collected now (e.g. 30% for partial)
+    },
+    remainingAmount: {
+      type: Number, // to be paid at tour start (for partial)
+    },
+    isAdvanceNonRefundable: {
+      type: Boolean,
+      default: false,
+    },
+    paymentStatus: {
+      type: String,
+      enum: ["pending", "partial", "paid"],
+      default: "pending",
+    },
     status: {
       type: String,
       enum: ["pending", "confirmed", "cancelled"],

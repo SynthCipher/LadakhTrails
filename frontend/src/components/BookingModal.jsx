@@ -3,6 +3,7 @@ import axios from 'axios'
 import { X, Calendar, DollarSign, BarChart, Sun, Phone, MapPin, Mountain } from 'lucide-react'
 import { toast } from 'react-toastify'
 import { AppContext } from '../context/AppContext'
+import { BsWhatsapp } from 'react-icons/bs'
 
 const BookingModal = ({ isOpen, onClose, tourName, tourDetails, tourId, lockedDate }) => {
 
@@ -14,6 +15,8 @@ const BookingModal = ({ isOpen, onClose, tourName, tourDetails, tourId, lockedDa
         specialRequests: '',
     })
     const [loading, setLoading] = useState(false)
+    const [paymentLoading, setPaymentLoading] = useState(false)
+    const [paymentOption, setPaymentOption] = useState('partial') // 'partial' (30%) or 'full'
 
     const context = useContext(AppContext)
     const backendUrl = context?.backendUrl || 'http://localhost:8081'
@@ -109,6 +112,10 @@ const BookingModal = ({ isOpen, onClose, tourName, tourDetails, tourId, lockedDa
         }))
     }
 
+    const handlePaymentOptionChange = (e) => {
+        setPaymentOption(e.target.value)
+    }
+
 
 
 
@@ -124,19 +131,44 @@ const BookingModal = ({ isOpen, onClose, tourName, tourDetails, tourId, lockedDa
                 return
             }
 
-            // Save booking to MongoDB
+            // Calculate pricing
+            const rawPrice = typeof tourDetails.price === 'string'
+                ? tourDetails.price.replace(/[^0-9]/g, '')
+                : tourDetails.price
+
+            const priceNumber = Number(rawPrice || 0)
+            if (!priceNumber || Number.isNaN(priceNumber)) {
+                toast.error('Invalid tour price. Please contact support.')
+                setLoading(false)
+                return
+            }
+
+            const peopleCount = parseInt(formData.numberOfPeople)
+            const totalAmount = priceNumber * peopleCount
+            const advanceAmount = paymentOption === 'partial'
+                ? Math.round(totalAmount * 0.3)
+                : totalAmount
+            const remainingAmount = totalAmount - advanceAmount
+
+            // Save booking to MongoDB (info + payment preference, but no online payment yet)
             const bookingData = {
                 tourId: tourId,
                 tourName: tourName,
                 fullName: formData.fullName,
                 email: formData.email,
                 phone: formData.phone,
-                numberOfPeople: parseInt(formData.numberOfPeople),
+                numberOfPeople: peopleCount,
                 tourDateSlot: formData.tourDateSlot,
                 startDate: formData.startDate,
                 endDate: formData.endDate,
                 durationDays: formData.durationDays,
                 specialRequests: formData.specialRequests,
+                paymentOption,
+                totalAmount,
+                advanceAmount,
+                remainingAmount,
+                isAdvanceNonRefundable: paymentOption === 'partial',
+                paymentStatus: 'pending',
             }
 
             const response = await axios.post(`${backendUrl}/api/tour/booking/add`, bookingData)
@@ -181,6 +213,14 @@ Special Requests: ${formData.specialRequests || 'None'}
 
 ---
 
+Payment Preference:
+Option: ${paymentOption === 'partial' ? '30% Advance (non-refundable) + remaining at tour start' : 'Full payment on tour'}
+Total Tour Amount: ₹${totalAmount}
+Planned Advance Amount: ₹${advanceAmount}
+Remaining Amount at Tour Start: ₹${remainingAmount}
+
+---
+
 Please confirm this booking and provide further instructions.
 
 Thank you!
@@ -208,6 +248,7 @@ Thank you!
                 durationDays: '',
                 specialRequests: '',
             })
+            setPaymentOption('partial')
 
             // Close modal
             onClose()
@@ -220,12 +261,233 @@ Thank you!
         }
     }
 
+    // helper to load Razorpay script dynamically
+    const loadRazorpayScript = () => {
+        return new Promise((resolve, reject) => {
+            if (window.Razorpay) {
+                resolve(true)
+                return
+            }
+            const script = document.createElement('script')
+            script.src = 'https://checkout.razorpay.com/v1/checkout.js'
+            script.onload = () => resolve(true)
+            script.onerror = () => reject(new Error('Failed to load Razorpay SDK'))
+            document.body.appendChild(script)
+        })
+    }
+
+    const handlePayNow = async () => {
+        try {
+            // basic validation
+            if (!formData.fullName || !formData.email || !formData.phone || !formData.numberOfPeople) {
+                toast.error('Please fill all required fields before payment')
+                return
+            }
+
+            if (!formData.startDate && !formData.tourDateSlot) {
+                toast.error('Please select preferred tour dates')
+                return
+            }
+
+            setPaymentLoading(true)
+
+            // 1) Calculate pricing
+            const rawPrice = typeof tourDetails.price === 'string'
+                ? tourDetails.price.replace(/[^0-9]/g, '')
+                : tourDetails.price
+
+            const priceNumber = Number(rawPrice || 0)
+            if (!priceNumber || Number.isNaN(priceNumber)) {
+                toast.error('Invalid tour price. Please contact support.')
+                setPaymentLoading(false)
+                return
+            }
+
+            const peopleCount = parseInt(formData.numberOfPeople)
+            const totalAmount = priceNumber * peopleCount
+            const advanceAmount = paymentOption === 'partial'
+                ? Math.round(totalAmount * 0.3)
+                : totalAmount
+            const remainingAmount = totalAmount - advanceAmount
+
+            // Razorpay maximum per order is typically 1,000,000 INR
+            if (advanceAmount > 1000000) {
+                toast.error('Advance amount exceeds online payment limit. Please contact us directly.')
+                setPaymentLoading(false)
+                return
+            }
+
+            // 2) Save booking first (with payment info)
+            const bookingData = {
+                tourId: tourId,
+                tourName: tourName,
+                fullName: formData.fullName,
+                email: formData.email,
+                phone: formData.phone,
+                numberOfPeople: peopleCount,
+                tourDateSlot: formData.tourDateSlot,
+                startDate: formData.startDate,
+                endDate: formData.endDate,
+                durationDays: formData.durationDays,
+                specialRequests: formData.specialRequests,
+                paymentOption,
+                totalAmount,
+                advanceAmount,
+                remainingAmount,
+                isAdvanceNonRefundable: paymentOption === 'partial',
+                paymentStatus: paymentOption === 'partial' ? 'partial' : 'paid',
+            }
+
+            const bookingRes = await axios.post(`${backendUrl}/api/tour/booking/add`, bookingData)
+            const bookingDataRes = bookingRes.data
+
+            if (!bookingDataRes.success) {
+                toast.error('Error saving booking: ' + bookingDataRes.message)
+                setPaymentLoading(false)
+                return
+            }
+
+            const booking = bookingDataRes.booking
+
+            // 3) Create Razorpay order on backend (for advance or full amount)
+            const paymentRes = await axios.post(`${backendUrl}/api/payment/create-order`, {
+                amount: advanceAmount,
+                currency: 'INR',
+                bookingId: booking._id,
+            })
+
+            const paymentData = paymentRes.data
+
+            if (!paymentData.success) {
+                toast.error('Failed to start payment: ' + paymentData.message)
+                setPaymentLoading(false)
+                return
+            }
+
+            const loaded = await loadRazorpayScript()
+            if (!loaded) {
+                toast.error('Unable to load payment SDK. Please try again.')
+                setPaymentLoading(false)
+                return
+            }
+
+            const options = {
+                key: paymentData.keyId,
+                amount: paymentData.order.amount,
+                currency: paymentData.order.currency,
+                name: 'Namgail Tours',
+                description: tourName,
+                order_id: paymentData.order.id,
+                prefill: {
+                    name: formData.fullName,
+                    email: formData.email,
+                    contact: formData.phone,
+                },
+                notes: {
+                    bookingId: booking._id,
+                    tourName,
+                },
+                handler: async function (response) {
+                    try {
+                        const verifyRes = await axios.post(`${backendUrl}/api/payment/verify`, {
+                            razorpay_order_id: response.razorpay_order_id,
+                            razorpay_payment_id: response.razorpay_payment_id,
+                            razorpay_signature: response.razorpay_signature,
+                            bookingId: booking._id,
+                        })
+
+                        if (verifyRes.data && verifyRes.data.success) {
+                            toast.success('Payment successful! Your booking is confirmed.')
+                            // Optional: also open WhatsApp for communication
+                            // Prepare WhatsApp message
+                            const message = `
+LADAKHTRAILS - BOOKING REQUEST (${paymentOption === 'partial' ? 'ADVANCE PAID (30%)' : 'FULLY PAID'})
+
+Tour Details:
+Tour: ${tourName}
+Duration: ${tourDetails.duration}
+Price: ${tourDetails.price}
+Difficulty: ${tourDetails.difficulty}
+Best Season: ${tourDetails.season}
+
+Tour Highlights:
+${tourDetails.highlights.map(h => `- ${h}`).join('\n')}
+
+Inclusions:
+${tourDetails.inclusions.map(i => `- ${i}`).join('\n')}
+
+---
+
+Booking Information:
+Name: ${formData.fullName}
+Email: ${formData.email}
+Phone: ${formData.phone}
+Number of People: ${formData.numberOfPeople}
+Start Date: ${formatShortDate(formData.startDate) || 'Not specified'}
+End Date: ${formatShortDate(formData.endDate) || 'Not specified'}
+Duration: ${formData.durationDays ? formData.durationDays + ' days' : 'Not specified'}
+Special Requests: ${formData.specialRequests || 'None'}
+
+---
+
+Payment:
+Total Tour Amount: ₹${totalAmount}
+${paymentOption === 'partial'
+        ? `Advance Paid Now (Non-Refundable 30%): ₹${advanceAmount}
+Remaining to be Paid at Tour Start: ₹${remainingAmount}`
+        : `Amount Paid Now (100%): ₹${advanceAmount}`
+    }
+
+Razorpay Payment ID: ${response.razorpay_payment_id}
+
+Please confirm this booking and share further details.
+
+Thank you!
+                            `.trim()
+
+                            const encodedMessage = encodeURIComponent(message)
+                            const whatsappNumber = '919682574824'
+                            const whatsappURL = `https://wa.me/${whatsappNumber}?text=${encodedMessage}`
+                            window.open(whatsappURL, '_blank')
+
+                            // Reset form and close modal
+                            setFormData({
+                                fullName: '',
+                                email: '',
+                                phone: '',
+                                numberOfPeople: '1',
+                                tourDateSlot: '',
+                                startDate: '',
+                                endDate: '',
+                                durationDays: '',
+                                specialRequests: '',
+                            })
+                            setPaymentOption('partial')
+                            onClose()
+                        } else {
+                            toast.error('Payment verification failed. Please contact support.')
+                        }
+                    } catch (err) {
+                        console.error('Payment verification error:', err)
+                        toast.error('Payment verification failed. Please contact support.')
+                    }
+                },
+                theme: {
+                    color: '#2563eb',
+                },
+            }
+
+            const rzp = new window.Razorpay(options)
+            rzp.open()
+        } catch (error) {
+            console.error('Error initializing payment:', error)
+            toast.error('Failed to start payment. Please try again.')
+        } finally {
+            setPaymentLoading(false)
+        }
+    }
+
     if (!isOpen) return null
-
-    useEffect(() => {
-        console.log(tourDetails)
-
-    }, [tourDetails])
 
     return (
         <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
@@ -440,29 +702,85 @@ Thank you!
                         />
                     </div>
 
+                    {/* Payment option selection */}
+                    <div className="border rounded-lg p-4 bg-blue-50 space-y-3">
+                        <p className="text-sm font-semibold text-blue-900">
+                            Payment Option
+                        </p>
+                        <div className="flex flex-col sm:flex-row gap-3">
+                            <label className="flex items-start gap-2 cursor-pointer">
+                                <input
+                                    type="radio"
+                                    name="paymentOption"
+                                    value="partial"
+                                    checked={paymentOption === 'partial'}
+                                    onChange={handlePaymentOptionChange}
+                                    className="mt-1"
+                                />
+                                <span className="text-sm text-gray-800">
+                                    <span className="font-semibold">Book Seat with 30% Advance (Recommended)</span>
+                                    <br />
+                                    30% of the total tour cost is charged now to confirm your seat. This advance is{' '}
+                                    <span className="font-semibold text-red-600">non-refundable</span>. The remaining 70% can be paid when the tour starts.
+                                </span>
+                            </label>
+                            <label className="flex items-start gap-2 cursor-pointer">
+                                <input
+                                    type="radio"
+                                    name="paymentOption"
+                                    value="full"
+                                    checked={paymentOption === 'full'}
+                                    onChange={handlePaymentOptionChange}
+                                    className="mt-1"
+                                />
+                                <span className="text-sm text-gray-800">
+                                    <span className="font-semibold">Pay Full Amount Now</span>
+                                    <br />
+                                    Pay 100% of the tour cost online now. This secures your booking in full.
+                                </span>
+                            </label>
+                        </div>
+                        <p className="text-xs text-gray-600">
+                            Exact payable amount will be shown in the Razorpay checkout before you confirm the payment.
+                        </p>
+                    </div>
+
                     {/* Buttons */}
-                    <div className="flex gap-4 pt-6 border-t">
+                    <div className="flex flex-col md:flex-row gap-4 pt-6 border-t">
                         <button
                             type="submit"
-                            disabled={loading}
+                            disabled={loading || paymentLoading}
                             className="flex-1 bg-gradient-to-r from-green-600 to-green-700 text-white py-3 rounded-lg font-bold hover:shadow-lg transition duration-300 flex items-center justify-center gap-2 disabled:opacity-50"
                         >
-                            <Phone size={18} className="text-green-400" />
+                            <BsWhatsapp size={18} className="text-grey-400" />
                             <span>{loading ? 'Processing...' : 'Send via WhatsApp'}</span>
                         </button>
                         <button
                             type="button"
+                            onClick={handlePayNow}
+                            disabled={paymentLoading || loading}
+                            className="flex-1 bg-blue-600 text-white py-3 rounded-lg font-bold hover:bg-blue-700 transition duration-300 disabled:opacity-50"
+                        >
+                            {paymentLoading ? 'Opening Payment...' : 'Pay Now (Razorpay)'}
+                        </button>
+                        <button
+                            type="button"
                             onClick={onClose}
-                            disabled={loading}
+                            disabled={loading || paymentLoading}
                             className="flex-1 bg-gray-300 text-gray-800 py-3 rounded-lg font-bold hover:bg-gray-400 transition duration-300 disabled:opacity-50"
                         >
                             Cancel
                         </button>
                     </div>
 
-                    <p className="text-xs text-center text-gray-600 pb-2">
-                        Note: Your booking will be saved and you'll be redirected to WhatsApp
-                    </p>
+                    <div className="space-y-1 pb-2">
+                        <p className="text-xs font-bold text-center text-gray-600">
+                            Note: Your booking will be saved before WhatsApp or payment.
+                        </p>
+                        <p className="text-xs text-center text-gray-500">
+                            You can either send your booking via WhatsApp or pay securely online using Razorpay.
+                        </p>
+                    </div>
                 </form>
             </div>
         </div>

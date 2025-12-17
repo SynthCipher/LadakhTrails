@@ -4,8 +4,86 @@ import Booking from "../models/bookingModel.js";
 import upload from "../middleware/multer.js";
 import { v2 as cloudinary } from "cloudinary";
 import { verifyAdmin } from "../middleware/auth.js";
+import nodemailer from "nodemailer";
 
 const tourRouter = express.Router();
+
+const SMTP_USER = process.env.SMTP_USER;
+const SMTP_PASS = process.env.SMTP_PASS;
+const SENDER_EMAIL = process.env.SENDER_EMAIL;
+
+const mailer =
+  SMTP_USER && SMTP_PASS && SENDER_EMAIL
+    ? nodemailer.createTransport({
+        host: "smtp-relay.brevo.com",
+        port: 587,
+        secure: false,
+        auth: {
+          user: SMTP_USER,
+          pass: SMTP_PASS,
+        },
+      })
+    : null;
+
+const sendBookingConfirmationEmail = async (booking) => {
+  if (!booking || !mailer) {
+    if (!mailer) {
+      console.warn("Email SMTP is not configured. Skipping email send.");
+    }
+    return;
+  }
+
+  const paymentLine =
+    booking.paymentOption === "partial"
+      ? `Payment: 30% advance paid (₹${booking.advanceAmount || 0}) and remaining ₹${
+          booking.remainingAmount || 0
+        } at tour start.`
+      : booking.paymentOption === "full"
+      ? `Payment: Full amount paid (₹${booking.totalAmount || booking.advanceAmount || 0}).`
+      : "Payment: To be collected offline.";
+
+  const subject = `Booking Confirmed - ${booking.tourName}`;
+
+  const body = `
+LADAKHTRAILS - BOOKING CONFIRMED ✅
+
+Tour: ${booking.tourName}
+Dates: ${booking.startDate || ""} to ${booking.endDate || ""}
+Guests: ${booking.numberOfPeople}
+
+Guest Details:
+Name: ${booking.fullName}
+Email: ${booking.email}
+Phone: ${booking.phone}
+
+${paymentLine}
+
+Thank you for booking with LadakhTrails!
+  `.trim();
+
+  const adminBody = `${body}
+
+---
+Internal Info:
+Booking ID: ${booking._id}
+Status: ${booking.status}
+Payment Status: ${booking.paymentStatus || "pending"}
+Created At: ${booking.createdAt}
+`;
+
+  const recipients = [booking.email, SENDER_EMAIL].filter(Boolean);
+
+  try {
+    await mailer.sendMail({
+      from: SENDER_EMAIL,
+      to: recipients,
+      subject,
+      text: adminBody,
+    });
+  } catch (err) {
+    console.error("Failed to send booking confirmation email:", err);
+  }
+};
 
 // Add new tour with image upload
 tourRouter.post("/add", upload.single("image"), async (req, res) => {
@@ -206,6 +284,13 @@ tourRouter.post("/booking/add", async (req, res) => {
       durationDays,
       specialRequests,
       tourDate,
+      // payment-related
+      paymentOption,
+      totalAmount,
+      advanceAmount,
+      remainingAmount,
+      isAdvanceNonRefundable,
+      paymentStatus,
     } = req.body;
 
     // determine tourDate string for backward compatibility
@@ -226,6 +311,15 @@ tourRouter.post("/booking/add", async (req, res) => {
       endDate,
       durationDays: durationDays ? Number(durationDays) : undefined,
       specialRequests,
+      paymentOption: paymentOption || "none",
+      totalAmount: totalAmount ? Number(totalAmount) : undefined,
+      advanceAmount: advanceAmount ? Number(advanceAmount) : undefined,
+      remainingAmount: remainingAmount ? Number(remainingAmount) : undefined,
+      isAdvanceNonRefundable:
+        typeof isAdvanceNonRefundable === "boolean"
+          ? isAdvanceNonRefundable
+          : isAdvanceNonRefundable === "true",
+      paymentStatus: paymentStatus || "pending",
     });
 
     const savedBooking = await newBooking.save();
@@ -314,6 +408,12 @@ tourRouter.put("/booking/status", async (req, res) => {
     );
     if (!updated)
       return res.json({ success: false, message: "Booking not found" });
+
+    // If booking is confirmed, send confirmation email
+    if (status === "confirmed") {
+      sendBookingConfirmationEmail(updated);
+    }
+
     res.json({
       success: true,
       booking: updated,

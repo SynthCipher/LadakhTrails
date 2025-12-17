@@ -11,7 +11,7 @@ const Navbar = () => {
   }
 
   const navLinks = [
-    { path: '/', label: 'Home' },
+    // { path: '/', label: 'Home' },
     { path: '/general', label: 'General Tour' },
     { path: '/wildlife', label: 'Wildlife Tour' },
     { path: '/winter-sports', label: 'Winter Sports' },
