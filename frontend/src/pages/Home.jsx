@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import UpcomingTours from '../components/UpcomingTours'
+import LadakhCalendar from '../components/LadakhCalendar'
+import ContactModal from '../components/ContactModal'
 import { Users, Shield, Globe } from 'lucide-react'
 import { assets } from '../assets/assets.js'
 const Home = () => {
@@ -14,6 +16,7 @@ const Home = () => {
   ].filter(Boolean)
 
   const [heroIndex, setHeroIndex] = useState(0)
+  const [isContactModalOpen, setIsContactModalOpen] = useState(false)
 
   useEffect(() => {
     if (!heroImages.length) return
@@ -23,7 +26,7 @@ const Home = () => {
     return () => clearInterval(interval)
   }, [heroImages.length])
   const tours = [
-  {
+    {
       id: 1,
       name: 'General Tour',
       description: 'Explore the stunning landscapes, historic monasteries, and vibrant culture of Ladakh',
@@ -83,6 +86,8 @@ const Home = () => {
       {/* Upcoming Tours Section */}
       <UpcomingTours />
 
+
+
       {/* Tour Packages Section */}
       <section className="max-w-7xl mx-auto px-4 py-16">
         <h2 className="text-4xl font-bold text-center mb-12 text-gray-800">Our Tour Packages</h2>
@@ -123,10 +128,13 @@ const Home = () => {
         </div>
       </section>
 
+      {/* Ladakh Festivals Calendar */}
+      <LadakhCalendar />
+
       {/* Why Choose Us Section */}
       <section className="bg-gray-100 py-16 px-4">
         <div className="max-w-7xl mx-auto">
-          <h2 className="text-4xl font-bold text-center mb-12 text-gray-800">Why Choose Namgail?</h2>
+          <h2 className="text-4xl font-bold text-center mb-12 text-gray-800">Why Choose Ladakh Trails?</h2>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
             <div className="bg-white p-8 rounded-lg shadow-md text-center">
               <Users size={36} className="mx-auto mb-4 text-blue-600" />
@@ -152,14 +160,17 @@ const Home = () => {
         <div className="max-w-4xl mx-auto text-center">
           <h2 className="text-4xl font-bold mb-6">Ready for Your Adventure?</h2>
           <p className="text-xl mb-8">Book your tour package today and create unforgettable memories in Ladakh</p>
-          <a
-            href="#contact"
-            className="inline-block bg-yellow-400 text-blue-900 px-8 py-4 rounded-lg font-bold text-lg hover:bg-yellow-300 transition duration-300"
+          <button
+            onClick={() => setIsContactModalOpen(true)}
+            className="inline-block bg-yellow-400 text-blue-900 px-8 py-4 rounded-lg font-bold text-lg hover:bg-yellow-300 transition duration-300 cursor-pointer shadow-lg hover:shadow-xl transform hover:-translate-y-1"
           >
             Get In Touch
-          </a>
+          </button>
         </div>
       </section>
+
+      {/* Contact Modal */}
+      <ContactModal isOpen={isContactModalOpen} onClose={() => setIsContactModalOpen(false)} />
     </div>
   )
 }

@@ -53,7 +53,7 @@ const bookingSchema = new mongoose.Schema(
     // payment-related fields
     paymentOption: {
       type: String,
-      enum: ["partial", "full", "none"],
+      enum: ["partial", "full", "none", "offline"],
       default: "none",
     },
     totalAmount: {

@@ -58,6 +58,9 @@ Phone: ${booking.phone}
 
 ${paymentLine}
 
+
+Please read our Terms & Conditions: https://ladakh-trails.vercel.app/terms
+
 Thank you for booking with LadakhTrails!
   `.trim();
 
@@ -107,7 +110,7 @@ tourRouter.post("/add", upload.single("image"), async (req, res) => {
         const result = await new Promise((resolve, reject) => {
           const uploadStream = cloudinary.uploader.upload_stream(
             {
-              folder: "namgail-tours",
+              folder: "ladakh-trails",
               resource_type: "auto",
             },
             (error, result) => {
@@ -175,7 +178,7 @@ tourRouter.put("/update/:id", upload.single("image"), async (req, res) => {
         const result = await new Promise((resolve, reject) => {
           const uploadStream = cloudinary.uploader.upload_stream(
             {
-              folder: "namgail-tours",
+              folder: "ladakh-trails",
               resource_type: "auto",
             },
             (error, result) => {
@@ -293,6 +296,33 @@ tourRouter.post("/booking/add", async (req, res) => {
       paymentStatus,
     } = req.body;
 
+    // --- CAPACITY CHECK ---
+    const tour = await Tour.findById(tourId);
+    if (!tour) return res.json({ success: false, message: "Tour not found" });
+
+    // Find all active bookings (not cancelled) to sum up people
+    const existingBookings = await Booking.find({
+      tourId: tourId,
+      status: { $ne: "cancelled" },
+    });
+
+    const currentPeopleCount = existingBookings.reduce(
+      (sum, b) => sum + (b.numberOfPeople || 0),
+      0
+    );
+    const requestedPeople = Number(numberOfPeople);
+    const available = tour.availableSeats - currentPeopleCount;
+
+    if (requestedPeople > available) {
+      return res.json({
+        success: false,
+        message: `Tour capacity exceeded. Only ${
+          available < 0 ? 0 : available
+        } seats remaining.`,
+      });
+    }
+    // ---------------------
+
     // determine tourDate string for backward compatibility
     const tourDateString =
       tourDateSlot ||
@@ -352,10 +382,19 @@ tourRouter.get("/bookings/all", async (req, res) => {
   }
 });
 
-// Get booking count for a tour
+// Get booking count for a tour (sum of people)
 tourRouter.get("/booking/count/:tourId", async (req, res) => {
   try {
-    const count = await Booking.countDocuments({ tourId: req.params.tourId });
+    const bookings = await Booking.find({
+      tourId: req.params.tourId,
+      status: { $ne: "cancelled" },
+    });
+
+    const count = bookings.reduce(
+      (sum, b) => sum + (b.numberOfPeople || 0),
+      0
+    );
+
     res.json({ success: true, count });
   } catch (error) {
     console.error(error);

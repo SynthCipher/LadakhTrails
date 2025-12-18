@@ -4,14 +4,34 @@ import { toast } from 'react-toastify'
 import { useContext } from 'react'
 import { AppContext } from '../context/AppContext'
 import BookingModal from '../components/BookingModal'
+import { assets } from '../assets/assets'
 
 const WinterSports = () => {
+    const heroImages = [
+        assets.winter1,
+        assets.winter2,
+        assets.winter3,
+        assets.winter4,
+        assets.winter5,
+    ].filter(Boolean)
+
+    const [heroIndex, setHeroIndex] = useState(0)
+
+    useEffect(() => {
+        if (!heroImages.length) return
+        const interval = setInterval(() => {
+            setHeroIndex((prev) => (prev + 1) % heroImages.length)
+        }, 3000)
+        return () => clearInterval(interval)
+    }, [heroImages.length])
+
     const context = useContext(AppContext)
     const backendUrl = context?.backendUrl || 'http://localhost:8081'
 
     const [isBookingOpen, setIsBookingOpen] = useState(false)
     const [tours, setTours] = useState([])
     const [activeTour, setActiveTour] = useState(null)
+    const [seatsLeft, setSeatsLeft] = useState({})
 
     const formatShortDate = (isoDate) => {
         try {
@@ -28,13 +48,58 @@ const WinterSports = () => {
     }
 
     useEffect(() => {
-        const fetchTour = async () => {
+        const fetchToursAndSort = async () => {
             try {
                 const res = await axios.get(`${backendUrl}/api/tour/type/${encodeURIComponent('Winter Sports')}`, { params: { planned: true } })
                 const d = res.data
                 if (d.success && d.tours && d.tours.length > 0) {
-                    setTours(d.tours)
-                    setActiveTour(d.tours[0])
+                    let fetchedTours = d.tours
+                    const newSeatsLeft = {}
+
+                    // 2. Fetch all seat counts in parallel
+                    await Promise.all(fetchedTours.map(async (tour) => {
+                        try {
+                            const countRes = await axios.get(`${backendUrl}/api/tour/booking/count/${tour._id}`)
+                            if (countRes.data.success) {
+                                const booked = countRes.data.count
+                                const available = tour.availableSeats - booked
+                                newSeatsLeft[tour._id] = available
+                            } else {
+                                newSeatsLeft[tour._id] = tour.availableSeats
+                            }
+                        } catch (err) {
+                            console.error('Error fetching count for', tour._id, err)
+                            newSeatsLeft[tour._id] = tour.availableSeats
+                        }
+                    }))
+
+                    setSeatsLeft(newSeatsLeft)
+
+                    // 3. Sort Tours
+                    fetchedTours.sort((a, b) => {
+                        const getStatus = (tour) => {
+                            const remaining = newSeatsLeft[tour._id] !== undefined ? newSeatsLeft[tour._id] : 999
+                            const isFull = remaining <= 0
+
+                            const now = new Date()
+                            const start = new Date(tour.startDate)
+                            const diffDays = Math.ceil((start - now) / (1000 * 60 * 60 * 24))
+                            const isClosed = diffDays <= 7
+
+                            if (isFull || isClosed) return 0
+                            return 1
+                        }
+
+                        const statusA = getStatus(a)
+                        const statusB = getStatus(b)
+
+                        if (statusA !== statusB) return statusB - statusA
+                        return new Date(a.startDate) - new Date(b.startDate)
+                    })
+
+                    setTours(fetchedTours)
+                    setActiveTour(fetchedTours[0])
+
                 } else {
                     setTours([])
                     setActiveTour(null)
@@ -44,11 +109,11 @@ const WinterSports = () => {
                 if (e.code === 'ERR_NETWORK' || e.request) {
                     toast.error(`Cannot reach backend API — ensure backend server is running on ${backendUrl}`)
                 } else {
-                    toast.error('Error fetching planned Winter Sports tours')
+                    // toast.error('Error fetching planned Winter Sports tours')
                 }
             }
         }
-        fetchTour()
+        fetchToursAndSort()
     }, [backendUrl])
 
     const tourDetails = {
@@ -58,6 +123,7 @@ const WinterSports = () => {
         season: 'December - February',
         price: activeTour ? activeTour.price : '₹55,000 - ₹85,000',
         difficulty: 'Moderate to Challenging',
+        tourType: 'Winter Sports',
         highlights: [
             'Chadar Trek - Walk on the frozen Zanskar River',
             'Ice Skating - Glide on crystal-clear frozen lakes',
@@ -75,17 +141,38 @@ const WinterSports = () => {
             'Professional Sports Guides',
             'Safety Equipment',
             'Snow Insurance'
-        ]
+        ],
+        totalSeats: activeTour ? activeTour.availableSeats : '20'
     }
+
+    // Helper to check closure
+    const checkBookingClosed = (dateStr) => {
+        if (!dateStr) return false
+        const now = new Date()
+        const startDate = new Date(dateStr)
+        const diffTime = startDate - now
+        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24))
+        return diffDays <= 7
+    }
+
+    const isActiveBookingClosed = activeTour ? checkBookingClosed(activeTour.startDate) : false
 
     return (
         <>
             <div className="min-h-screen bg-gray-50">
                 {/* Hero Section */}
-                <section className="bg-gradient-to-r from-blue-600 to-cyan-700 text-white py-16 px-4">
-                    <div className="max-w-7xl mx-auto">
-                        <h1 className="text-5xl font-bold mb-4">⛷️ Winter Sports Tour</h1>
-                        <p className="text-xl">Thrilling snow sports and adventures in Ladakh's frozen wonderland</p>
+                <section
+                    className="relative text-white py-20 px-4 overflow-hidden h-[60vh] flex items-center justify-center transition-all duration-1000"
+                    style={heroImages.length ? {
+                        backgroundImage: `url(${heroImages[heroIndex]})`,
+                        backgroundSize: 'cover',
+                        backgroundPosition: 'center',
+                    } : {}}
+                >
+                    <div className="absolute inset-0 bg-black/50"></div>
+                    <div className="relative z-10 max-w-7xl mx-auto text-center">
+                        <h1 className="text-5xl font-bold mb-4 drop-shadow-lg">Winter Sports Tour</h1>
+                        <p className="text-xl drop-shadow-md">Thrilling snow sports and adventures in Ladakh's frozen wonderland</p>
                     </div>
                 </section>
 
@@ -125,36 +212,54 @@ const WinterSports = () => {
                         {/* Right Column */}
                         <div className="space-y-8">
                             {/* Active tour image + quick book */}
-                            <div className="bg-white rounded-lg shadow-lg overflow-hidden border border-blue-100">
-                                {activeTour?.image ? (
-                                    <img
-                                        src={activeTour.image}
-                                        alt={activeTour.tourName}
-                                        className="w-full h-56 object-cover"
-                                    />
-                                ) : (
-                                    <div className="w-full h-56 bg-gray-100 flex items-center justify-center text-gray-500 text-sm">
-                                        No image available
-                                    </div>
-                                )}
-                                <div className="p-4 flex items-center justify-between">
-                                    <div>
-                                        <p className="font-semibold text-gray-800">{activeTour ? activeTour.tourName : 'Winter Sports Tour'}</p>
-                                        {activeTour && (
+                            {/* Active tour image + quick book */}
+                            {activeTour ? (
+                                <div className="bg-white rounded-lg shadow-lg overflow-hidden border border-blue-100">
+                                    {activeTour.image ? (
+                                        <img
+                                            src={activeTour.image}
+                                            alt={activeTour.tourName}
+                                            className="w-full h-56 object-cover"
+                                        />
+                                    ) : (
+                                        <div className="w-full h-56 bg-gray-100 flex items-center justify-center text-gray-500 text-sm">
+                                            No image available
+                                        </div>
+                                    )}
+                                    <div className="p-4 flex items-center justify-between">
+                                        <div>
+                                            <p className="font-semibold text-gray-800">{activeTour.tourName}</p>
                                             <p className="text-sm text-gray-600">
                                                 {formatShortDate(activeTour.startDate)} - {formatShortDate(activeTour.endDate)}
                                             </p>
-                                        )}
+                                        </div>
+                                        <button
+                                            disabled={isActiveBookingClosed}
+                                            onClick={() => setIsBookingOpen(true)}
+                                            className={`${isActiveBookingClosed
+                                                ? 'bg-gray-400 cursor-not-allowed'
+                                                : 'bg-blue-600 hover:bg-blue-700'} text-white px-4 py-2 rounded-md font-semibold transition`}
+                                        >
+                                            {isActiveBookingClosed ? 'Booking Closed' : 'Book'}
+                                        </button>
                                     </div>
-                                    <button
-                                        onClick={() => activeTour && setIsBookingOpen(true)}
-                                        disabled={!activeTour}
-                                        className="bg-blue-600 text-white px-4 py-2 rounded-md font-semibold hover:bg-blue-700 transition disabled:opacity-50"
-                                    >
-                                        Book
-                                    </button>
                                 </div>
-                            </div>
+                            ) : (
+                                <div className="bg-white rounded-lg shadow-lg overflow-hidden border border-blue-100 opacity-75">
+                                    <div className="w-full h-56 bg-gray-100 flex items-center justify-center text-gray-500 text-lg font-medium">
+                                        No Active Tours
+                                    </div>
+                                    <div className="p-4 flex items-center justify-between">
+                                        <div>
+                                            <p className="font-semibold text-gray-800">No Tours Scheduled</p>
+                                            <p className="text-sm text-gray-600">Please check back later</p>
+                                        </div>
+                                        <button disabled className="bg-gray-400 text-white px-4 py-2 rounded-md font-semibold cursor-not-allowed">
+                                            Book
+                                        </button>
+                                    </div>
+                                </div>
+                            )}
 
                             {/* Duration & Price (overview) */}
                             <div className="bg-white p-8 rounded-lg shadow-lg border-l-4 border-blue-600">
@@ -192,28 +297,55 @@ const WinterSports = () => {
                             </div>
 
                             {/* Upcoming scheduled Winter Sports tours list */}
+                            {/* Upcoming scheduled Winter Sports tours list */}
                             <div className="bg-white p-8 rounded-lg shadow-lg">
                                 <h3 className="text-xl font-bold mb-4 text-gray-800">Upcoming Scheduled Winter Sports Tours</h3>
                                 {tours.length > 0 ? (
                                     <div className="space-y-3">
-                                        {tours.map((tour) => (
-                                            <button
-                                                key={tour._id}
-                                                onClick={() => {
-                                                    setActiveTour(tour)
-                                                    setIsBookingOpen(true)
-                                                }}
-                                                className="w-full text-left border border-blue-200 rounded-lg px-4 py-3 hover:bg-blue-50 transition flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2"
-                                            >
-                                                <div>
-                                                    <p className="font-semibold text-gray-800">{tour.tourName}</p>
-                                                    <p className="text-sm text-gray-600">
-                                                        {formatShortDate(tour.startDate)} - {formatShortDate(tour.endDate)}
-                                                    </p>
-                                                </div>
-                                                <p className="text-sm font-bold text-blue-600">₹{tour.price}</p>
-                                            </button>
-                                        ))}
+                                        {[...tours].sort((a, b) => {
+                                            const aLeft = seatsLeft[a._id] !== undefined ? seatsLeft[a._id] : 999
+                                            const bLeft = seatsLeft[b._id] !== undefined ? seatsLeft[b._id] : 999
+                                            const aFull = aLeft <= 0
+                                            const bFull = bLeft <= 0
+                                            return aFull === bFull ? 0 : aFull ? 1 : -1
+                                        }).map((tour) => {
+                                            const remaining = seatsLeft[tour._id]
+                                            const isFull = remaining !== undefined && remaining <= 0
+                                            const isClosed = checkBookingClosed(tour.startDate)
+
+                                            return (
+                                                <button
+                                                    key={tour._id}
+                                                    disabled={isFull || isClosed}
+                                                    onClick={() => {
+                                                        setActiveTour(tour)
+                                                        setIsBookingOpen(true)
+                                                    }}
+                                                    className={`w-full text-left border rounded-lg px-4 py-3 transition flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 ${isFull || isClosed
+                                                        ? 'border-gray-200 bg-gray-100 grayscale opacity-70 cursor-not-allowed'
+                                                        : 'border-blue-200 hover:bg-blue-50'
+                                                        }`}
+                                                >
+                                                    <div>
+                                                        <p className="font-semibold text-gray-800">{tour.tourName}</p>
+                                                        <p className="text-sm text-gray-600">
+                                                            {formatShortDate(tour.startDate)} - {formatShortDate(tour.endDate)}
+                                                        </p>
+                                                    </div>
+                                                    {isFull ? (
+                                                        <span className="text-sm font-bold text-red-600 bg-red-100 px-3 py-1 rounded-full">
+                                                            Sold Out
+                                                        </span>
+                                                    ) : isClosed ? (
+                                                        <span className="text-sm font-bold text-gray-600 bg-gray-200 px-3 py-1 rounded-full">
+                                                            Booking Closed
+                                                        </span>
+                                                    ) : (
+                                                        <p className="text-sm font-bold text-blue-600">₹{tour.price}</p>
+                                                    )}
+                                                </button>
+                                            )
+                                        })}
                                     </div>
                                 ) : (
                                     <p className="text-gray-600 text-sm">No upcoming Winter Sports tours are scheduled at the moment.</p>

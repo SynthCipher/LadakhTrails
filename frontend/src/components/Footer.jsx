@@ -1,5 +1,6 @@
 import React from 'react'
-import { Facebook, Instagram, Twitter, Mail, Phone, MapPin, Mountain } from 'lucide-react'
+import { Facebook, Instagram, Twitter, Mail, Phone, MapPin, Mountain, LinkedinIcon } from 'lucide-react'
+import { assets } from '../assets/assets'
 
 const Footer = () => {
   const currentYear = new Date().getFullYear()
@@ -11,7 +12,7 @@ const Footer = () => {
         <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
           {/* About Section */}
           <div>
-            <h3 className="text-white text-lg font-bold mb-4"><Mountain className="inline-block mr-2" />LadakhTrails</h3>
+            <h3 className="text-white text-lg font-bold mb-4">  <img src={assets.logo} alt="Ladakh Trails" className="h-20 object-contain " />LadakhTrails</h3>
             <p className="text-sm leading-relaxed">
               Experience the breathtaking beauty of Ladakh with our expertly curated tour packages. Adventure awaits!
             </p>
@@ -45,11 +46,11 @@ const Footer = () => {
             <div className="space-y-3 text-sm">
               <div className="flex items-center space-x-3">
                 <Phone className="text-blue-400" size={18} />
-                <a href="tel:+91-XXXXX-XXXXX" className="hover:text-blue-400 transition">+91-XXXXX-XXXXX</a>
+                <a href="tel:+91-9682574824" className="hover:text-blue-400 transition">+91-9682574824</a>
               </div>
               <div className="flex items-center space-x-3">
                 <Mail className="text-blue-400" size={18} />
-                <a href="mailto:info@ladakhtrails.com" className="hover:text-blue-400 transition">info@ladakhtrails.com</a>
+                <a href="mailto:ladakhtrails.onela@gmail.com" className="hover:text-blue-400 transition">ladakhtrails.onela@gmail.com</a>
               </div>
               <div className="flex items-start space-x-3">
                 <MapPin className="text-blue-400 mt-1 flex-shrink-0" size={18} />
@@ -65,9 +66,9 @@ const Footer = () => {
         {/* Social Media & Copyright */}
         <div className="flex flex-col md:flex-row justify-between items-center gap-4">
           <div className="flex space-x-6 mb-4 md:mb-0">
-            <a href="#facebook" className="hover:text-blue-400 transition" aria-label="Facebook"><Facebook size={20} /></a>
-            <a href="#instagram" className="hover:text-pink-400 transition" aria-label="Instagram"><Instagram size={20} /></a>
-            <a href="#twitter" className="hover:text-blue-300 transition" aria-label="Twitter"><Twitter size={20} /></a>
+            {/* <a href="#facebook" className="hover:text-blue-400 transition" aria-label="Facebook"><Facebook size={20} /></a> */}
+            <a href="https://www.instagram.com/onela.in/?hl=en" className="hover:text-pink-400 transition" aria-label="Instagram"><Instagram size={20} /></a>
+            <a href="https://www.linkedin.com/company/onela-in/" className="hover:text-blue-300 transition" aria-label="LinkedIn"><LinkedinIcon size={20} /></a>
           </div>
           <p className="text-sm text-center">
             &copy; {currentYear} LadakhTrails. All rights reserved. | Designed & Deployed by <a href="https://onela.in" target="_blank" rel="noopener noreferrer" className="text-blue-400 hover:text-blue-300 transition font-semibold">Onela</a>

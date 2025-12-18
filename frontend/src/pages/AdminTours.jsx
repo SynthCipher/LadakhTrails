@@ -12,7 +12,10 @@ const AdminTours = () => {
     const backendUrl = context?.backendUrl || 'http://localhost:8081'
 
     const [isAuthenticated, setIsAuthenticated] = useState(false)
+
+    const [email, setEmail] = useState('')
     const [password, setPassword] = useState('')
+    const [token, setToken] = useState('')
     const [tours, setTours] = useState([])
     const [formData, setFormData] = useState({
         tourName: '',
@@ -33,7 +36,18 @@ const AdminTours = () => {
     const [selectedTourId, setSelectedTourId] = useState(null)
     const [bookingsLoading, setBookingsLoading] = useState(false)
     const [bookingCounts, setBookingCounts] = useState({})
-    const [selectedTour, setSelectedTour] = useState(null);
+    const [selectedTour, setSelectedTour] = useState(null)
+    const [showAddBookingForm, setShowAddBookingForm] = useState(false)
+    const [manualBookingData, setManualBookingData] = useState({
+        fullName: '',
+        email: '',
+        phone: '',
+        numberOfPeople: 1,
+        status: 'confirmed', // Default to confirmed for offline/admin bookings
+        paymentStatus: 'paid',
+        paymentOption: 'offline',
+        specialRequests: 'Offline Booking (Admin)'
+    })
 
 
 
@@ -71,8 +85,9 @@ const AdminTours = () => {
     }, [backendUrl])
 
     useEffect(() => {
-        const auth = sessionStorage.getItem('adminAuthenticated')
-        if (auth === 'true') {
+        const storedToken = sessionStorage.getItem('token')
+        if (storedToken) {
+            setToken(storedToken)
             setIsAuthenticated(true)
             fetchTours()
         }
@@ -100,25 +115,33 @@ const AdminTours = () => {
         }
     }, [isAuthenticated, fetchTours])
 
-    const handleLogin = (e) => {
+    const handleLogin = async (e) => {
         e.preventDefault()
-        if (password === '12345678') {
-            sessionStorage.setItem('adminAuthenticated', 'true')
-            // save password to allow status updates to backend (falls back to header auth)
-            sessionStorage.setItem('adminPassword', password)
-            setIsAuthenticated(true)
-            setPassword('')
-            fetchTours()
-            toast.success('Login successful!')
-        } else {
-            toast.error('Invalid password')
+        try {
+            const response = await axios.post(`${backendUrl}/api/user/admin`, {
+                email,
+                password
+            })
+            if (response.data.success) {
+                sessionStorage.setItem('token', response.data.token)
+                setToken(response.data.token)
+                setIsAuthenticated(true)
+                toast.success('Login successful')
+                fetchTours()
+            } else {
+                toast.error(response.data.message)
+            }
+        } catch (error) {
+            console.error(error)
+            toast.error(error.message)
         }
     }
 
     const handleLogout = () => {
-        sessionStorage.removeItem('adminAuthenticated')
-        sessionStorage.removeItem('adminPassword')
+        sessionStorage.removeItem('token')
         setIsAuthenticated(false)
+        setToken('')
+        setEmail('')
         setPassword('')
         toast.info('Logged out successfully')
     }
@@ -143,11 +166,63 @@ const AdminTours = () => {
         }
     }
 
+    const handleManualBookingSubmit = async (e) => {
+        e.preventDefault()
+        if (!selectedTour) return
+
+        try {
+            setLoading(true)
+            const payload = {
+                tourId: selectedTour._id,
+                tourName: selectedTour.tourName,
+                fullName: manualBookingData.fullName,
+                email: manualBookingData.email,
+                phone: manualBookingData.phone,
+                numberOfPeople: manualBookingData.numberOfPeople,
+                tourDate: `${selectedTour.startDate} - ${selectedTour.endDate}`,
+                startDate: selectedTour.startDate,
+                endDate: selectedTour.endDate,
+                status: manualBookingData.status,
+                paymentStatus: manualBookingData.paymentStatus,
+                paymentOption: manualBookingData.paymentOption,
+                specialRequests: manualBookingData.specialRequests
+            }
+
+            const res = await axios.post(`${backendUrl}/api/tour/booking/add`, payload)
+            if (res.data.success) {
+                toast.success('Offline booking added successfully')
+                setShowAddBookingForm(false)
+                setManualBookingData({
+                    fullName: '',
+                    email: '',
+                    phone: '',
+                    numberOfPeople: 1,
+                    status: 'confirmed',
+                    paymentStatus: 'paid',
+                    paymentOption: 'offline',
+                    specialRequests: 'Offline Booking (Admin)'
+                })
+                // Refresh data
+                fetchTourBookings(selectedTour._id)
+                fetchTours()
+            } else {
+                toast.error(res.data.message)
+            }
+        } catch (error) {
+            console.error('Error adding booking:', error)
+            toast.error('Failed to add booking')
+        } finally {
+            setLoading(false)
+        }
+    }
+
     const changeBookingStatus = async (bookingId, status) => {
         try {
-            const adminPassword = sessionStorage.getItem('adminPassword')
             const res = await axios.put(`${backendUrl}/api/tour/booking/status`, { bookingId, status }, {
-                headers: { 'Content-Type': 'application/json', 'x-admin-password': adminPassword || '' }
+                headers: {
+                    'Content-Type': 'application/json',
+                    token: token
+                }
             })
             const data = res.data
             if (data.success) {
@@ -315,6 +390,19 @@ const AdminTours = () => {
                     <h1 className="text-4xl font-bold mb-2 text-center text-gray-800">Admin Login</h1>
                     <p className="text-center text-gray-600 mb-8">LadakhTrails Management</p>
                     <form onSubmit={handleLogin} className="space-y-4">
+                        <div>
+                            <label className="block text-sm font-semibold text-gray-700 mb-2">
+                                Email Address
+                            </label>
+                            <input
+                                type="email"
+                                value={email}
+                                onChange={(e) => setEmail(e.target.value)}
+                                required
+                                className="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:border-blue-500 focus:outline-none transition"
+                                placeholder="admin@example.com"
+                            />
+                        </div>
                         <div>
                             <label className="block text-sm font-semibold text-gray-700 mb-2">
                                 Password
@@ -628,298 +716,499 @@ const AdminTours = () => {
                     {tours.length === 0 ? (
                         <p className="text-gray-600 text-center py-12">No tours added yet. Create your first tour above!</p>
                     ) : (
-                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 ">
-                            {tours.map(tour => (
-                                <div
-                                    key={tour._id}
-                                    className="border-2 border-gray-200 rounded-xl overflow-hidden hover:shadow-xl transition duration-300"
-                                >
-                                    {/* Tour Image */}
-                                    {tour.image && (
-                                        <div className="relative h-48 overflow-hidden bg-gray-200">
-                                            <img
-                                                src={tour.image}
-                                                alt={tour.tourName}
-                                                className="w-full h-full object-cover hover:scale-105 transition duration-300"
-                                            />
-                                            <div className="absolute top-4 right-4 bg-blue-600 text-white px-3 py-1 rounded-full text-sm font-semibold">
-                                                {tour.tourType}
-                                            </div>
-                                            <div className={`absolute top-4 left-4 px-3 py-1 rounded-full text-sm font-semibold ${tour.isPlanned ? 'bg-green-600 text-white' : 'bg-gray-300 text-gray-700'}`}>
-                                                {tour.isPlanned ? 'Planned' : 'Draft'}
-                                            </div>
-                                        </div>
-                                    )}
-
-                                    <div className="p-6">
-                                        <h3 className="text-xl font-bold text-gray-800 mb-2">{tour.tourName}</h3>
-
-                                        {/* Date & Price Row */}
-                                        <div className="grid grid-cols-2 gap-4 mb-4">
-                                            <div className="bg-blue-50 p-3 rounded-lg">
-                                                <p className="text-xs text-gray-600 font-semibold">Dates</p>
-                                                <p className="font-bold text-gray-800">{tour.startDate}</p>
-                                                <p className="text-sm text-gray-700">to {tour.endDate}</p>
-                                            </div>
-                                            <div className="bg-green-50 p-3 rounded-lg">
-                                                <p className="text-xs text-gray-600 font-semibold">Price</p>
-                                                <p className="font-bold text-green-700 text-lg">{tour.price}</p>
-                                            </div>
-                                        </div>
-
-                                        {/* Seats Information */}
-                                        <div className="bg-orange-50 p-3 rounded-lg mb-4">
-                                            <div className="flex justify-between items-center">
-                                                <div>
-                                                    <p className="text-xs text-gray-600 font-semibold">Available Seats</p>
-                                                    <p className="font-bold text-lg text-orange-700">{tour.availableSeats} seats</p>
-                                                </div>
-                                                <div className="text-right">
-                                                    <p className="text-xs text-gray-600 font-semibold">Booked</p>
-                                                    <p className="font-bold text-lg text-red-600">{bookingCounts[tour._id] || 0} / {tour.availableSeats}</p>
-                                                </div>
-                                            </div>
-                                            <div className="w-full bg-gray-300 rounded-full h-2 mt-2">
-                                                {(() => {
-                                                    const booked = bookingCounts[tour._id] || 0
-                                                    const seats = Number(tour.availableSeats) || 0
-                                                    const percent = seats > 0 ? Math.round((booked / seats) * 100) : 0
-                                                    return <div className="bg-orange-500 h-2 rounded-full" style={{ width: `${percent}%` }}></div>
-                                                })()}
-                                            </div>
-                                        </div>
-
-                                        <p className="text-gray-700 text-sm mb-4 line-clamp-2">{tour.description}</p>
-
-                                        {/* Highlights */}
-                                        <div className="mb-4">
-                                            <p className="text-xs font-semibold text-gray-600 mb-2">Highlights:</p>
-                                            <div className="flex flex-wrap gap-2">
-                                                {tour.highlights.split(',').slice(0, 3).map((h, idx) => (
-                                                    <span key={idx} className="bg-blue-100 text-blue-800 text-xs px-3 py-1 rounded-full">
-                                                        {h.trim()}
-                                                    </span>
-                                                ))}
-                                                {tour.highlights.split(',').length > 3 && (
-                                                    <span className="bg-gray-100 text-gray-700 text-xs px-3 py-1 rounded-full">
-                                                        +{tour.highlights.split(',').length - 3} more
-                                                    </span>
-                                                )}
-                                            </div>
-                                        </div>
-
-                                        {/* Action Buttons */}
-                                        <div className="flex gap-2">
-                                            <button
-                                                onClick={() => {
-                                                    setSelectedTour(tour);          // ✅ ADD THIS LINE
-                                                    fetchTourBookings(tour._id);    // existing
-                                                }}
-                                            className="flex-1 flex items-center justify-center gap-2 bg-purple-500 hover:bg-purple-600 text-white py-2 rounded-lg font-semibold transition"
-                                            >
-                                            <Eye size={18} />
-                                            Applicants
-                                        </button>
-                                        <button
-                                            onClick={() => {
-                                                handleEditTour(tour);
-                                                window.scrollTo({ top: 0, behavior: "smooth" });
-                                            }}
-                                            className="px-4 py-2 bg-yellow-500 hover:bg-yellow-600 text-white rounded-lg transition"
+                        <div className="space-y-12">
+                            {/* Active Tours Section */}
+                            <div>
+                                <h3 className="text-xl font-bold text-gray-700 mb-6 flex items-center gap-2">
+                                    <div className="w-2 h-8 bg-blue-600 rounded-full"></div>
+                                    Active Tours ({tours.filter(t => t.endDate >= today).length})
+                                </h3>
+                                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                                    {tours.filter(t => t.endDate >= today).map(tour => (
+                                        <div
+                                            key={tour._id}
+                                            className="border-2 border-gray-200 rounded-xl overflow-hidden hover:shadow-xl transition duration-300"
                                         >
-                                            <Edit2 size={18} />
-                                        </button>
+                                            {/* Tour Image */}
+                                            {tour.image && (
+                                                <div className="relative h-48 overflow-hidden bg-gray-200">
+                                                    <img
+                                                        src={tour.image}
+                                                        alt={tour.tourName}
+                                                        className="w-full h-full object-cover hover:scale-105 transition duration-300"
+                                                    />
+                                                    <div className="absolute top-4 right-4 bg-blue-600 text-white px-3 py-1 rounded-full text-sm font-semibold">
+                                                        {tour.tourType}
+                                                    </div>
+                                                    <div className={`absolute top-4 left-4 px-3 py-1 rounded-full text-sm font-semibold ${tour.isPlanned ? 'bg-green-600 text-white' : 'bg-gray-300 text-gray-700'}`}>
+                                                        {tour.isPlanned ? 'Planned' : 'Draft'}
+                                                    </div>
+                                                </div>
+                                            )}
 
-                                        <button
-                                            onClick={() => handleDeleteTour(tour._id)}
-                                            className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg transition"
-                                        >
-                                            <Trash2 size={18} />
-                                        </button>
-                                    </div>
+                                            <div className="p-6">
+                                                <h3 className="text-xl font-bold text-gray-800 mb-2">{tour.tourName}</h3>
+
+                                                {/* Date & Price Row */}
+                                                <div className="grid grid-cols-2 gap-4 mb-4">
+                                                    <div className="bg-blue-50 p-3 rounded-lg">
+                                                        <p className="text-xs text-gray-600 font-semibold">Dates</p>
+                                                        <p className="font-bold text-gray-800">{tour.startDate}</p>
+                                                        <p className="text-sm text-gray-700">to {tour.endDate}</p>
+                                                    </div>
+                                                    <div className="bg-green-50 p-3 rounded-lg">
+                                                        <p className="text-xs text-gray-600 font-semibold">Price</p>
+                                                        <p className="font-bold text-green-700 text-lg">{tour.price}</p>
+                                                    </div>
+                                                </div>
+
+                                                {/* Seats Information */}
+                                                <div className="bg-orange-50 p-3 rounded-lg mb-4">
+                                                    <div className="flex justify-between items-center">
+                                                        <div>
+                                                            <p className="text-xs text-gray-600 font-semibold">Available Seats</p>
+                                                            <p className="font-bold text-lg text-orange-700">{tour.availableSeats} seats</p>
+                                                        </div>
+                                                        <div className="text-right">
+                                                            <p className="text-xs text-gray-600 font-semibold">Booked</p>
+                                                            <p className="font-bold text-lg text-red-600">{bookingCounts[tour._id] || 0} / {tour.availableSeats}</p>
+                                                        </div>
+                                                    </div>
+                                                    <div className="w-full bg-gray-300 rounded-full h-2 mt-2">
+                                                        {(() => {
+                                                            const booked = bookingCounts[tour._id] || 0
+                                                            const seats = Number(tour.availableSeats) || 0
+                                                            const percent = seats > 0 ? Math.round((booked / seats) * 100) : 0
+                                                            return <div className="bg-orange-500 h-2 rounded-full" style={{ width: `${percent}%` }}></div>
+                                                        })()}
+                                                    </div>
+                                                </div>
+
+                                                <p className="text-gray-700 text-sm mb-4 line-clamp-2">{tour.description}</p>
+
+                                                {/* Highlights */}
+                                                <div className="mb-4">
+                                                    <p className="text-xs font-semibold text-gray-600 mb-2">Highlights:</p>
+                                                    <div className="flex flex-wrap gap-2">
+                                                        {tour.highlights.split(',').slice(0, 3).map((h, idx) => (
+                                                            <span key={idx} className="bg-blue-100 text-blue-800 text-xs px-3 py-1 rounded-full">
+                                                                {h.trim()}
+                                                            </span>
+                                                        ))}
+                                                        {tour.highlights.split(',').length > 3 && (
+                                                            <span className="bg-gray-100 text-gray-700 text-xs px-3 py-1 rounded-full">
+                                                                +{tour.highlights.split(',').length - 3} more
+                                                            </span>
+                                                        )}
+                                                    </div>
+                                                </div>
+
+                                                {/* Action Buttons */}
+                                                <div className="flex gap-2">
+                                                    <button
+                                                        onClick={() => {
+                                                            setSelectedTour(tour);
+                                                            fetchTourBookings(tour._id);
+                                                        }}
+                                                        className="flex-1 flex items-center justify-center gap-2 bg-purple-500 hover:bg-purple-600 text-white py-2 rounded-lg font-semibold transition"
+                                                    >
+                                                        <Eye size={18} />
+                                                        Applicants
+                                                    </button>
+                                                    <button
+                                                        onClick={() => {
+                                                            handleEditTour(tour);
+                                                            window.scrollTo({ top: 0, behavior: "smooth" });
+                                                        }}
+                                                        className="px-4 py-2 bg-yellow-500 hover:bg-yellow-600 text-white rounded-lg transition"
+                                                    >
+                                                        <Edit2 size={18} />
+                                                    </button>
+
+                                                    <button
+                                                        onClick={() => handleDeleteTour(tour._id)}
+                                                        className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg transition"
+                                                    >
+                                                        <Trash2 size={18} />
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    ))}
                                 </div>
-                                </div>
-                    ))}
-                </div>
-                    )}
-            </div>
-        </div>
-
-            {/* Bookings Modal */ }
-    {
-        selectedTourBookings !== null && (
-            <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-                <div className="bg-white rounded-3xl shadow-2xl w-full max-w-5xl h-[90vh] flex flex-col">
-
-                    {/* Header */}
-                    <div className="sticky top-0 z-10 bg-gradient-to-r from-purple-600 to-purple-800 text-white px-8 py-6 flex justify-between items-center rounded-t-3xl">
-                        <h3 className="flex flex-col gap-1 text-2xl font-bold">
-                            {/* Top line */}
-                            <div className="flex items-center gap-3">
-                                <ClipboardList className="w-7 h-7 text-white" />
-                                <span>Tour Applicants</span>
-                                <span className="text-sm bg-white/20 px-3 py-1 rounded-full">
-                                    {selectedTourBookings.length}
-                                </span>
                             </div>
 
-                            {/* Tour name line */}
-                            <span className="text-sm font-medium text-purple-100 ml-10">
-                                {selectedTour?.tourName}
-                            </span>
-                        </h3>
+                            {/* Completed Tours Section */}
+                            {tours.filter(t => t.endDate < today).length > 0 && (
+                                <div className="pt-8 border-t-2 border-gray-100">
+                                    <h3 className="text-xl font-bold text-gray-500 mb-6 flex items-center gap-2">
+                                        <div className="w-2 h-8 bg-gray-400 rounded-full"></div>
+                                        Completed Tours ({tours.filter(t => t.endDate < today).length})
+                                    </h3>
+                                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                                        {tours.filter(t => t.endDate < today).map(tour => (
+                                            <div
+                                                key={tour._id}
+                                                className="border-2 border-gray-200 rounded-xl overflow-hidden grayscale opacity-70 hover:grayscale-0 hover:opacity-100 transition duration-500"
+                                            >
+                                                {/* Tour Image */}
+                                                {tour.image && (
+                                                    <div className="relative h-48 overflow-hidden bg-gray-200">
+                                                        <img
+                                                            src={tour.image}
+                                                            alt={tour.tourName}
+                                                            className="w-full h-full object-cover"
+                                                        />
+                                                        <div className="absolute top-4 right-4 bg-gray-600 text-white px-3 py-1 rounded-full text-sm font-semibold">
+                                                            Closed
+                                                        </div>
+                                                    </div>
+                                                )}
 
+                                                <div className="p-6">
+                                                    <h3 className="text-xl font-bold text-gray-500 mb-2 italic">{tour.tourName} (Completed)</h3>
 
-                        <button
-                            onClick={() => setSelectedTourBookings(null)}
-                            className="p-2 rounded-full hover:bg-white/20 transition"
-                        >
-                            <X size={26} />
-                        </button>
-                    </div>
+                                                    {/* Date Row */}
+                                                    <div className="bg-gray-100 p-3 rounded-lg mb-4">
+                                                        <p className="text-xs text-gray-600 font-semibold">Dates</p>
+                                                        <p className="text-gray-500 font-medium">Ended on {tour.endDate}</p>
+                                                    </div>
 
-                    {/* Content */}
-                    <div className="flex-1 overflow-y-auto px-8 max-sm:px-3 py-6 space-y-5">
+                                                    {/* Seats Information (Summary Only) */}
+                                                    <div className="bg-gray-50 p-3 rounded-lg mb-4 flex justify-between items-center text-sm">
+                                                        <span className="text-gray-600 font-semibold">Total Passengers:</span>
+                                                        <span className="font-bold text-gray-800">{bookingCounts[tour._id] || 0}</span>
+                                                    </div>
 
-                        {bookingsLoading ? (
-                            <p className="text-center text-gray-600">Loading applicants...</p>
-                        ) : selectedTourBookings.length === 0 ? (
-                            <p className="text-center text-gray-600">
-                                No applicants for this tour yet.
-                            </p>
-                        ) : (
-                            selectedTourBookings.map((booking, idx) => (
-                                <div
-                                    key={booking._id}
-                                    className="bg-gray-50 border border-gray-200 rounded-2xl p-6 hover:shadow-md transition"
-                                >
-                                    {/* Card Header */}
-                                    <div className="flex justify-between items-start mb-4">
-                                        <div>
-                                            <h4 className="text-lg font-bold text-gray-800">
-                                                #{idx + 1} {booking.fullName}
-                                            </h4>
-                                            <p className="text-sm text-gray-500">
-                                                Applied on {new Date(booking.createdAt).toLocaleDateString()}
-                                            </p>
-                                        </div>
-
-                                        <span
-                                            className={`px-4 py-1 rounded-full text-xs font-semibold ${booking.status === "confirmed"
-                                                ? "bg-green-100 text-green-800"
-                                                : booking.status === "cancelled"
-                                                    ? "bg-red-100 text-red-800"
-                                                    : "bg-yellow-100 text-yellow-800"
-                                                }`}
-                                        >
-                                            {booking.status.toUpperCase()}
-                                        </span>
-                                    </div>
-
-                                    {/* Details Grid */}
-                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm text-gray-700">
-
-                                        <p><span className="font-semibold">Email:</span> {booking.email}</p>
-                                        <p><span className="font-semibold">Phone:</span> {booking.phone}</p>
-                                        <p><span className="font-semibold">People:</span> {booking.numberOfPeople}</p>
-
-                                        <p>
-                                            <span className="font-semibold">Dates:</span>{" "}
-                                            {booking.startDate
-                                                ? `${formatShortDate(booking.startDate)} — ${formatShortDate(booking.endDate) || ""}`
-                                                : booking.tourDate}
-                                        </p>
-
-                                        {booking.durationDays && (
-                                            <p>
-                                                <span className="font-semibold">Duration:</span>{" "}
-                                                {booking.durationDays} days
-                                            </p>
-                                        )}
-
-                                        <p>
-                                            <span className="font-semibold">Payment Option:</span>{" "}
-                                            {booking.paymentOption === "partial"
-                                                ? "30% Advance + Remaining at Start"
-                                                : booking.paymentOption === "full"
-                                                    ? "Full Payment Online"
-                                                    : "Offline / Not Set"}
-                                        </p>
-
-                                        <p>
-                                            <span className="font-semibold">Payment Status:</span>{" "}
-                                            {booking.paymentStatus || "pending"}
-                                        </p>
-
-                                        {typeof booking.totalAmount === "number" && (
-                                            <p>
-                                                <span className="font-semibold">Total Amount:</span> ₹{booking.totalAmount}
-                                            </p>
-                                        )}
-
-                                        {typeof booking.advanceAmount === "number" && (
-                                            <p>
-                                                <span className="font-semibold">Advance Paid:</span> ₹{booking.advanceAmount}
-                                                {booking.paymentOption === "partial" &&
-                                                    booking.isAdvanceNonRefundable && (
-                                                        <span className="text-xs text-red-600 font-semibold">
-                                                            {" "} (non-refundable)
-                                                        </span>
-                                                    )}
-                                            </p>
-                                        )}
-
-                                        {typeof booking.remainingAmount === "number" && booking.remainingAmount > 0 && (
-                                            <p>
-                                                <span className="font-semibold">Remaining:</span> ₹{booking.remainingAmount}
-                                            </p>
-                                        )}
-
-                                        {booking.specialRequests && (
-                                            <p className="md:col-span-2 bg-white p-3 rounded-lg border">
-                                                <span className="font-semibold">Special Requests:</span>{" "}
-                                                {booking.specialRequests}
-                                            </p>
-                                        )}
-                                    </div>
-
-                                    {/* Status Action */}
-                                    <div className="mt-5 flex items-center gap-3">
-                                        <label className="text-sm font-semibold">Update Status:</label>
-                                        <select
-                                            value={booking.status}
-                                            onChange={(e) =>
-                                                changeBookingStatus(booking._id, e.target.value)
-                                            }
-                                            className="px-3 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-purple-500"
-                                        >
-                                            <option value="pending">Pending</option>
-                                            <option value="confirmed">Confirmed</option>
-                                            <option value="cancelled">Cancelled</option>
-                                        </select>
+                                                    {/* Action Buttons (Limited) */}
+                                                    <div className="flex gap-2">
+                                                        <button
+                                                            onClick={() => {
+                                                                setSelectedTour(tour);
+                                                                fetchTourBookings(tour._id);
+                                                            }}
+                                                            className="flex-1 flex items-center justify-center gap-2 bg-gray-200 hover:bg-gray-300 text-gray-700 py-2 rounded-lg font-semibold transition"
+                                                        >
+                                                            <Eye size={18} />
+                                                            View History / Applicants
+                                                        </button>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        ))}
                                     </div>
                                 </div>
-                            ))
-                        )}
-                    </div>
+                            )}
+                        </div>
+                    )}
                 </div>
             </div>
-        )
-    }
 
+            {/* Bookings Modal */}
+            {selectedTourBookings !== null && (
+                <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+                    <div className="bg-white rounded-3xl shadow-2xl w-full max-w-5xl h-[90vh] flex flex-col">
 
-    <ToastContainer
-        position="bottom-right"
-        autoClose={3000}
-        hideProgressBar={false}
-        newestOnTop={false}
-        closeOnClick
-        rtl={false}
-        pauseOnFocusLoss
-        draggable
-        pauseOnHover
-    />
-        </div >
+                        {/* Header */}
+                        <div className="sticky top-0 z-10 bg-gradient-to-r from-purple-600 to-purple-800 text-white px-8 py-6 flex justify-between items-center rounded-t-3xl">
+                            <h3 className="flex flex-col gap-1 text-2xl font-bold">
+                                {/* Top line */}
+                                <div className="flex items-center gap-3">
+                                    <ClipboardList className="w-7 h-7 text-white" />
+                                    <span>Tour Applicants</span>
+                                    <span className="text-sm bg-white/20 px-3 py-1 rounded-full">
+                                        {selectedTourBookings.reduce((sum, b) => sum + (b.numberOfPeople || 0), 0)} Applicants
+                                    </span>
+                                </div>
+
+                                {/* Tour name line */}
+                                <span className="text-sm font-medium text-purple-100 ml-10">
+                                    {selectedTour?.tourName}
+                                </span>
+                            </h3>
+
+                            <div className="flex items-center gap-3">
+                                {selectedTour && new Date(selectedTour.endDate) < new Date(today) && (
+                                    <span className="bg-red-500 text-white px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider">
+                                        Completed / Read Only
+                                    </span>
+                                )}
+                                <button
+                                    onClick={() => setShowAddBookingForm(!showAddBookingForm)}
+                                    disabled={selectedTour && new Date(selectedTour.endDate) < new Date(today)}
+                                    className={`px-4 py-2 rounded-lg font-bold transition text-sm flex items-center gap-2 ${showAddBookingForm
+                                        ? 'bg-white/20 hover:bg-white/30'
+                                        : (selectedTour && new Date(selectedTour.endDate) < new Date(today)
+                                            ? 'bg-gray-400 cursor-not-allowed opacity-70'
+                                            : 'bg-green-500 hover:bg-green-600')}`}
+                                >
+                                    {showAddBookingForm ? 'Cancel All' : 'Add Offline Booking'}
+                                </button>
+                                <button
+                                    onClick={() => {
+                                        setSelectedTourBookings(null)
+                                        setShowAddBookingForm(false)
+                                    }}
+                                    className="p-2 rounded-full hover:bg-white/20 transition"
+                                >
+                                    <X size={26} />
+                                </button>
+                            </div>
+                        </div>
+
+                        {/* Content */}
+                        <div className="flex-1 overflow-y-auto p-8 bg-gray-50">
+                            {showAddBookingForm ? (
+                                <div className="max-w-xl mx-auto bg-white p-8 rounded-2xl shadow-sm border border-gray-200">
+                                    <h4 className="text-xl font-bold text-gray-800 mb-6 flex items-center gap-2">
+                                        <Upload size={20} className="text-purple-600" />
+                                        New Manual Booking
+                                    </h4>
+                                    <form onSubmit={handleManualBookingSubmit} className="space-y-4">
+                                        <div>
+                                            <label className="block text-sm font-semibold text-gray-700 mb-1">Guest Name *</label>
+                                            <input
+                                                type="text"
+                                                required
+                                                value={manualBookingData.fullName}
+                                                onChange={e => setManualBookingData(prev => ({ ...prev, fullName: e.target.value }))}
+                                                className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-purple-500 outline-none"
+                                                placeholder="John Doe"
+                                            />
+                                        </div>
+                                        <div className="grid grid-cols-2 gap-4">
+                                            <div>
+                                                <label className="block text-sm font-semibold text-gray-700 mb-1">Email *</label>
+                                                <input
+                                                    type="email"
+                                                    required
+                                                    value={manualBookingData.email}
+                                                    onChange={e => setManualBookingData(prev => ({ ...prev, email: e.target.value }))}
+                                                    className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-purple-500 outline-none"
+                                                    placeholder="john@example.com"
+                                                />
+                                            </div>
+                                            <div>
+                                                <label className="block text-sm font-semibold text-gray-700 mb-1">Phone *</label>
+                                                <input
+                                                    type="text"
+                                                    required
+                                                    value={manualBookingData.phone}
+                                                    onChange={e => setManualBookingData(prev => ({ ...prev, phone: e.target.value }))}
+                                                    className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-purple-500 outline-none"
+                                                    placeholder="+91 9876543210"
+                                                />
+                                            </div>
+                                        </div>
+                                        <div className="grid grid-cols-2 gap-4">
+                                            <div>
+                                                <label className="block text-sm font-semibold text-gray-700 mb-1">Number of People *</label>
+                                                <input
+                                                    type="number"
+                                                    min="1"
+                                                    required
+                                                    value={manualBookingData.numberOfPeople}
+                                                    onChange={e => setManualBookingData(prev => ({ ...prev, numberOfPeople: parseInt(e.target.value) || 1 }))}
+                                                    className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-purple-500 outline-none"
+                                                />
+                                            </div>
+                                        </div>
+                                        <div className="grid grid-cols-2 gap-4">
+                                            <div>
+                                                <label className="block text-sm font-semibold text-gray-700 mb-1">Payment Option</label>
+                                                <select
+                                                    value={manualBookingData.paymentOption}
+                                                    onChange={e => setManualBookingData(prev => ({ ...prev, paymentOption: e.target.value }))}
+                                                    className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-purple-500 outline-none"
+                                                >
+                                                    <option value="offline">Offline / Cache</option>
+                                                    <option value="full">Full Payment Online</option>
+                                                    <option value="partial">30% Advance</option>
+                                                </select>
+                                            </div>
+                                            <div>
+                                                <label className="block text-sm font-semibold text-gray-700 mb-1">Payment Status</label>
+                                                <select
+                                                    value={manualBookingData.paymentStatus}
+                                                    onChange={e => setManualBookingData(prev => ({ ...prev, paymentStatus: e.target.value }))}
+                                                    className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-purple-500 outline-none"
+                                                >
+                                                    <option value="paid">Paid</option>
+                                                    <option value="pending">Pending</option>
+                                                </select>
+                                            </div>
+                                        </div>
+                                        <div className="grid grid-cols-2 gap-4">
+                                            <div>
+                                                <label className="block text-sm font-semibold text-gray-700 mb-1">Booking Status</label>
+                                                <select
+                                                    value={manualBookingData.status}
+                                                    onChange={e => setManualBookingData(prev => ({ ...prev, status: e.target.value }))}
+                                                    className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-purple-500 outline-none"
+                                                >
+                                                    <option value="confirmed">Confirmed</option>
+                                                    <option value="pending">Pending</option>
+                                                </select>
+                                            </div>
+                                        </div>
+                                        <div>
+                                            <label className="block text-sm font-semibold text-gray-700 mb-1">Special Requests / Notes</label>
+                                            <textarea
+                                                value={manualBookingData.specialRequests}
+                                                onChange={e => setManualBookingData(prev => ({ ...prev, specialRequests: e.target.value }))}
+                                                className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-purple-500 outline-none"
+                                                rows="2"
+                                                placeholder="e.g. Dietary requirements or offline payment details"
+                                            />
+                                        </div>
+                                        <button
+                                            type="submit"
+                                            disabled={loading}
+                                            className="w-full bg-purple-600 text-white py-3 rounded-lg font-bold hover:bg-purple-700 transition mt-4 disabled:opacity-50"
+                                        >
+                                            {loading ? 'Adding Booking...' : 'Add Booking'}
+                                        </button>
+                                    </form>
+                                </div>
+                            ) : (
+                                selectedTourBookings.length === 0 ? (
+                                    <div className="flex flex-col items-center justify-center h-full text-gray-500">
+                                        <ClipboardList size={48} className="mb-4 opacity-20" />
+                                        <p className="text-lg font-medium">No bookings found for this tour yet.</p>
+                                    </div>
+                                ) : (
+                                    selectedTourBookings.map((booking, idx) => (
+                                        <div
+                                            key={booking._id}
+                                            className="bg-gray-50 border border-gray-200 rounded-2xl p-6 hover:shadow-md transition mb-4"
+                                        >
+                                            {/* Card Header */}
+                                            <div className="flex justify-between items-start mb-4">
+                                                <div>
+                                                    <h4 className="text-lg font-bold text-gray-800">
+                                                        #{idx + 1} {booking.fullName}
+                                                    </h4>
+                                                    <p className="text-sm text-gray-500">
+                                                        Applied on {new Date(booking.createdAt).toLocaleDateString()}
+                                                    </p>
+                                                </div>
+
+                                                <span
+                                                    className={`px-4 py-1 rounded-full text-xs font-semibold ${booking.status === "confirmed"
+                                                        ? "bg-green-100 text-green-800"
+                                                        : booking.status === "cancelled"
+                                                            ? "bg-red-100 text-red-800"
+                                                            : "bg-yellow-100 text-yellow-800"
+                                                        }`}
+                                                >
+                                                    {booking.status.toUpperCase()}
+                                                </span>
+                                            </div>
+
+                                            {/* Details Grid */}
+                                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm text-gray-700">
+
+                                                <p><span className="font-semibold">Email:</span> {booking.email}</p>
+                                                <p><span className="font-semibold">Phone:</span> {booking.phone}</p>
+                                                <p><span className="font-semibold">People:</span> {booking.numberOfPeople}</p>
+
+                                                <p>
+                                                    <span className="font-semibold">Dates:</span>{" "}
+                                                    {booking.startDate
+                                                        ? `${formatShortDate(booking.startDate)} — ${formatShortDate(booking.endDate) || ""}`
+                                                        : booking.tourDate}
+                                                </p>
+
+                                                {booking.durationDays && (
+                                                    <p>
+                                                        <span className="font-semibold">Duration:</span>{" "}
+                                                        {booking.durationDays} days
+                                                    </p>
+                                                )}
+
+                                                <p>
+                                                    <span className="font-semibold">Payment Option:</span>{" "}
+                                                    {booking.paymentOption === "partial"
+                                                        ? "30% Advance + Remaining at Start"
+                                                        : booking.paymentOption === "full"
+                                                            ? "Full Payment Online"
+                                                            : "Offline / Not Set"}
+                                                </p>
+
+                                                <p>
+                                                    <span className="font-semibold">Payment Status:</span>{" "}
+                                                    {booking.paymentStatus || "pending"}
+                                                </p>
+
+                                                {typeof booking.totalAmount === "number" && (
+                                                    <p>
+                                                        <span className="font-semibold">Total Amount:</span> ₹{booking.totalAmount}
+                                                    </p>
+                                                )}
+
+                                                {typeof booking.advanceAmount === "number" && (
+                                                    <p>
+                                                        <span className="font-semibold">Advance Paid:</span> ₹{booking.advanceAmount}
+                                                        {booking.paymentOption === "partial" &&
+                                                            booking.isAdvanceNonRefundable && (
+                                                                <span className="text-xs text-red-600 font-semibold">
+                                                                    {" "} (non-refundable)
+                                                                </span>
+                                                            )}
+                                                    </p>
+                                                )}
+
+                                                {typeof booking.remainingAmount === "number" && booking.remainingAmount > 0 && (
+                                                    <p>
+                                                        <span className="font-semibold">Remaining:</span> ₹{booking.remainingAmount}
+                                                    </p>
+                                                )}
+
+                                                {booking.specialRequests && (
+                                                    <p className="md:col-span-2 bg-white p-3 rounded-lg border">
+                                                        <span className="font-semibold">Special Requests:</span>{" "}
+                                                        {booking.specialRequests}
+                                                    </p>
+                                                )}
+                                            </div>
+
+                                            {/* Status Action */}
+                                            <div className="mt-5 flex items-center gap-3">
+                                                <label className="text-sm font-semibold">Update Status:</label>
+                                                <select
+                                                    value={booking.status}
+                                                    disabled={selectedTour && new Date(selectedTour.endDate) < new Date(today)}
+                                                    onChange={(e) =>
+                                                        changeBookingStatus(booking._id, e.target.value)
+                                                    }
+                                                    className={`px-3 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-purple-500 ${selectedTour && new Date(selectedTour.endDate) < new Date(today) ? 'bg-gray-100 text-gray-400 cursor-not-allowed' : ''}`}
+                                                >
+                                                    <option value="pending">Pending</option>
+                                                    <option value="confirmed">Confirmed</option>
+                                                    <option value="cancelled">Cancelled</option>
+                                                </select>
+                                            </div>
+                                        </div>
+                                    ))
+                                )
+                            )}
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            <ToastContainer
+                position="bottom-right"
+                autoClose={3000}
+                hideProgressBar={false}
+                newestOnTop={false}
+                closeOnClick
+                rtl={false}
+                pauseOnFocusLoss
+                draggable
+                pauseOnHover
+            />
+        </div>
     )
 }
 

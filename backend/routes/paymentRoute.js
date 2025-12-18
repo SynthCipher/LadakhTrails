@@ -220,7 +220,7 @@ const customerEmailTemplate = (booking, paymentLine) => `
     </div>
 
     <div class="content">
-      <p>Namaste <strong>${booking.fullName}</strong>,</p>
+      <p>Jullay <strong>${booking.fullName}</strong>,</p>
 
       <h2>Tour Details</h2>
       <table>
@@ -236,6 +236,10 @@ const customerEmailTemplate = (booking, paymentLine) => `
       <p style="margin-top:20px;">
         Warm regards,<br />
         <strong>LadakhTrails Team</strong>
+        <strong>LadakhTrails Team</strong>
+      </p>
+      <p style="font-size:12px; margin-top:30px; border-top:1px solid #eee; padding-top:10px;">
+        Please read our <a href="https://ladakh-trails.vercel.app/terms">Terms & Conditions</a>
       </p>
     </div>
 
@@ -277,6 +281,9 @@ const adminEmailTemplate = (booking, paymentLine) => `
 
     <p><strong>Payment:</strong> ${paymentLine}</p>
     <p><strong>Booking ID:</strong> ${booking._id}</p>
+    <p>
+       <a href="https://ladakh-trails.vercel.app/terms">Terms & Conditions</a>
+    </p>
   </div>
 </body>
 </html>

@@ -8,6 +8,17 @@ import userRouter from "./routes/userRoute.js";
 import paymentRouter from "./routes/paymentRoute.js";
 
 // APP CONFIG
+process.on('uncaughtException', (err) => {
+  console.error('UNCAUGHT EXCEPTION! 💥');
+  console.error(err.name, err.message);
+  console.error(err.stack);
+});
+
+process.on('unhandledRejection', (err) => {
+  console.error('UNHANDLED REJECTION! 💥');
+  console.error(err);
+});
+
 const app = express();
 const port = process.env.PORT || 8081;
 
@@ -17,13 +28,17 @@ const port = process.env.PORT || 8081;
   await connectCloudinary();
 })();
 
+import helmet from "helmet";
+
 // MIDDLE WARE
 app.use(express.json());
+app.use(helmet());
 const allowedOrigins = [
   "http://localhost:3000",
   "https://ladakh-trails.vercel.app",
   "http://localhost:3000",
   "http://localhost:5173", // Vite
+  "http://localhost:5174", // Vite
 ];
 
 app.use(cors({

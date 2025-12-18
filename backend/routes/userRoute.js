@@ -18,9 +18,25 @@ router.post("/admin", async (req, res) => {
       });
     }
 
-    if (email === ADMIN_EMAIL && password === ADMIN_PASSWORD) {
+    // List of allowed admins (Master from env + additional accounts)
+    const allowedAdmins = [
+      { email: ADMIN_EMAIL, password: ADMIN_PASSWORD },
+      // You can add more admins here interactively:
+      { email: "rinchen@ladakhtrails.com", password: "ladakh_admin_01" },
+      { email: "namgail@ladakhtrails.com", password: "ladakh_admin_02" },
+    ];
+
+    const isValidAdmin = allowedAdmins.find(
+      (admin) =>
+        admin.email &&
+        admin.password &&
+        admin.email === email &&
+        admin.password === password
+    );
+
+    if (isValidAdmin) {
       const token = jwt.sign(
-        { isAdmin: true },
+        { isAdmin: true, email: email },
         process.env.JWT_SECRET || "secret",
         {
           expiresIn: "1d",

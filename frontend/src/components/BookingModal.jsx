@@ -1,9 +1,9 @@
 import React, { useState, useEffect, useContext } from 'react'
 import axios from 'axios'
-import { X, Calendar, DollarSign, BarChart, Sun, Phone, MapPin, Mountain } from 'lucide-react'
+import { X, Calendar, DollarSign, BarChart, Sun, Phone, MapPin, Mountain, Users } from 'lucide-react'
 import { toast } from 'react-toastify'
 import { AppContext } from '../context/AppContext'
-import { BsWhatsapp } from 'react-icons/bs'
+
 
 const BookingModal = ({ isOpen, onClose, tourName, tourDetails, tourId, lockedDate }) => {
 
@@ -14,7 +14,9 @@ const BookingModal = ({ isOpen, onClose, tourName, tourDetails, tourId, lockedDa
         numberOfPeople: '1',
         specialRequests: '',
     })
-    const [loading, setLoading] = useState(false)
+
+    const [agreedToTerms, setAgreedToTerms] = useState(false)
+
     const [paymentLoading, setPaymentLoading] = useState(false)
     const [paymentOption, setPaymentOption] = useState('partial') // 'partial' (30%) or 'full'
 
@@ -119,147 +121,7 @@ const BookingModal = ({ isOpen, onClose, tourName, tourDetails, tourId, lockedDa
 
 
 
-    const handleSubmit = async (e) => {
-        e.preventDefault()
-        setLoading(true)
 
-        try {
-            // ensure dates selected / provided
-            if (!formData.startDate && !formData.tourDateSlot) {
-                toast.error('Please select preferred tour dates')
-                setLoading(false)
-                return
-            }
-
-            // Calculate pricing
-            const rawPrice = typeof tourDetails.price === 'string'
-                ? tourDetails.price.replace(/[^0-9]/g, '')
-                : tourDetails.price
-
-            const priceNumber = Number(rawPrice || 0)
-            if (!priceNumber || Number.isNaN(priceNumber)) {
-                toast.error('Invalid tour price. Please contact support.')
-                setLoading(false)
-                return
-            }
-
-            const peopleCount = parseInt(formData.numberOfPeople)
-            const totalAmount = priceNumber * peopleCount
-            const advanceAmount = paymentOption === 'partial'
-                ? Math.round(totalAmount * 0.3)
-                : totalAmount
-            const remainingAmount = totalAmount - advanceAmount
-
-            // Save booking to MongoDB (info + payment preference, but no online payment yet)
-            const bookingData = {
-                tourId: tourId,
-                tourName: tourName,
-                fullName: formData.fullName,
-                email: formData.email,
-                phone: formData.phone,
-                numberOfPeople: peopleCount,
-                tourDateSlot: formData.tourDateSlot,
-                startDate: formData.startDate,
-                endDate: formData.endDate,
-                durationDays: formData.durationDays,
-                specialRequests: formData.specialRequests,
-                paymentOption,
-                totalAmount,
-                advanceAmount,
-                remainingAmount,
-                isAdvanceNonRefundable: paymentOption === 'partial',
-                paymentStatus: 'pending',
-            }
-
-            const response = await axios.post(`${backendUrl}/api/tour/booking/add`, bookingData)
-            const data = response.data
-
-            if (!data.success) {
-                toast.error('Error saving booking: ' + data.message)
-                setLoading(false)
-                return
-            }
-
-            toast.success('Booking saved successfully!')
-
-            // Prepare WhatsApp message
-            const message = `
-LADAKHTRAILS - BOOKING REQUEST
-
-Tour Details:
-Tour: ${tourName}
-Duration: ${tourDetails.duration}
-Price: ${tourDetails.price}
-Difficulty: ${tourDetails.difficulty}
-Best Season: ${tourDetails.season}
-
-Tour Highlights:
-${tourDetails.highlights.map(h => `- ${h}`).join('\n')}
-
-Inclusions:
-${tourDetails.inclusions.map(i => `- ${i}`).join('\n')}
-
----
-
-Booking Information:
-Name: ${formData.fullName}
-Email: ${formData.email}
-Phone: ${formData.phone}
-Number of People: ${formData.numberOfPeople}
-Start Date: ${formatShortDate(formData.startDate) || 'Not specified'}
-End Date: ${formatShortDate(formData.endDate) || 'Not specified'}
-Duration: ${formData.durationDays ? formData.durationDays + ' days' : 'Not specified'}
-Special Requests: ${formData.specialRequests || 'None'}
-
----
-
-Payment Preference:
-Option: ${paymentOption === 'partial' ? '30% Advance (non-refundable) + remaining at tour start' : 'Full payment on tour'}
-Total Tour Amount: ₹${totalAmount}
-Planned Advance Amount: ₹${advanceAmount}
-Remaining Amount at Tour Start: ₹${remainingAmount}
-
----
-
-Please confirm this booking and provide further instructions.
-
-Thank you!
-    `.trim()
-
-            // Encode message for WhatsApp
-            const encodedMessage = encodeURIComponent(message)
-
-            // WhatsApp Business API or regular WhatsApp link
-            const whatsappNumber = '919682574824'
-            const whatsappURL = `https://wa.me/${whatsappNumber}?text=${encodedMessage}`
-
-            // Open WhatsApp
-            window.open(whatsappURL, '_blank')
-
-            // Reset form
-            setFormData({
-                fullName: '',
-                email: '',
-                phone: '',
-                numberOfPeople: '1',
-                tourDateSlot: '',
-                startDate: '',
-                endDate: '',
-                durationDays: '',
-                specialRequests: '',
-            })
-            setPaymentOption('partial')
-
-            // Close modal
-            onClose()
-            toast.info('Opening WhatsApp...')
-        } catch (error) {
-            console.error('Error submitting booking:', error)
-            toast.error('Failed to submit booking. Please try again.')
-        } finally {
-            setLoading(false)
-        }
-    }
 
     // helper to load Razorpay script dynamically
     const loadRazorpayScript = () => {
@@ -281,6 +143,11 @@ Thank you!
             // basic validation
             if (!formData.fullName || !formData.email || !formData.phone || !formData.numberOfPeople) {
                 toast.error('Please fill all required fields before payment')
+                return
+            }
+
+            if (!agreedToTerms) {
+                toast.error('You must agree to the Terms & Conditions to proceed.')
                 return
             }
 
@@ -375,7 +242,7 @@ Thank you!
                 key: paymentData.keyId,
                 amount: paymentData.order.amount,
                 currency: paymentData.order.currency,
-                name: 'Namgail Tours',
+                name: 'Ladakh Trails',
                 description: tourName,
                 order_id: paymentData.order.id,
                 prefill: {
@@ -397,7 +264,17 @@ Thank you!
                         })
 
                         if (verifyRes.data && verifyRes.data.success) {
-                            toast.success('Payment successful! Your booking is confirmed.')
+                            toast.success(
+                                <div>
+                                    <p className="font-bold">Booking Confirmed! 🎉</p>
+                                    <p className="text-sm">{tourName}</p>
+                                    <p className="text-xs mt-1">Amount Paid: ₹{paymentData.order.amount / 100}</p>
+                                </div>,
+                                {
+                                    autoClose: 5000,
+                                    icon: "✅"
+                                }
+                            )
                             // Optional: also open WhatsApp for communication
                             // Prepare WhatsApp message
                             const message = `
@@ -433,10 +310,10 @@ Special Requests: ${formData.specialRequests || 'None'}
 Payment:
 Total Tour Amount: ₹${totalAmount}
 ${paymentOption === 'partial'
-        ? `Advance Paid Now (Non-Refundable 30%): ₹${advanceAmount}
+                                    ? `Advance Paid Now (Non-Refundable 30%): ₹${advanceAmount}
 Remaining to be Paid at Tour Start: ₹${remainingAmount}`
-        : `Amount Paid Now (100%): ₹${advanceAmount}`
-    }
+                                    : `Amount Paid Now (100%): ₹${advanceAmount}`
+                                }
 
 Razorpay Payment ID: ${response.razorpay_payment_id}
 
@@ -493,7 +370,8 @@ Thank you!
         <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
             <div className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
                 {/* Header */}
-                <div className="sticky top-0 bg-gradient-to-r from-blue-600 to-blue-800 text-white p-6 flex justify-between items-center">
+                <div className="sticky top-0 z-50 bg-gradient-to-r from-blue-600 to-blue-800 text-white p-6 flex justify-between items-center">
+
                     <div className="flex items-center gap-3">
                         <MapPin size={22} />
                         <h2 className="text-2xl font-bold">Book {tourName}</h2>
@@ -573,6 +451,17 @@ Thank you!
                             </div>
                         </div>
 
+                        {/* Total Seats */}
+                        <div className="bg-white p-4 rounded-lg flex items-center gap-3">
+                            <Users className="text-teal-500" />
+                            <div>
+                                <p className="text-xs text-gray-600 font-semibold">Total Seats</p>
+                                <p className="font-bold text-teal-600">
+                                    {tourDetails.totalSeats}
+                                </p>
+                            </div>
+                        </div>
+
                         {/* Best Season */}
                         {/* <div className="bg-white p-4 rounded-lg flex items-center gap-3">
                             <Sun className="text-yellow-500" />
@@ -587,7 +476,7 @@ Thank you!
                 </div>
 
                 {/* Form */}
-                <form onSubmit={handleSubmit} className="p-6 space-y-5">
+                <form onSubmit={(e) => e.preventDefault()} className="p-6 space-y-5">
                     <div>
                         <label className="block text-sm font-semibold text-gray-700 mb-2">
                             Full Name *
@@ -745,20 +634,35 @@ Thank you!
                         </p>
                     </div>
 
+                    {/* Terms Agreement */}
+                    <div className="flex items-start gap-2 pt-2">
+                        <input
+                            type="checkbox"
+                            id="termsCheckbox"
+                            checked={agreedToTerms}
+                            onChange={(e) => setAgreedToTerms(e.target.checked)}
+                            className="mt-1 w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                        />
+                        <label htmlFor="termsCheckbox" className="text-sm text-gray-700">
+                            I agree to the{' '}
+                            <a
+                                href="/terms"
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="text-blue-600 underline hover:text-blue-800"
+                            >
+                                Terms & Conditions
+                            </a>
+                            , including the cancellation policy.
+                        </label>
+                    </div>
+
                     {/* Buttons */}
                     <div className="flex flex-col md:flex-row gap-4 pt-6 border-t">
                         <button
-                            type="submit"
-                            disabled={loading || paymentLoading}
-                            className="flex-1 bg-gradient-to-r from-green-600 to-green-700 text-white py-3 rounded-lg font-bold hover:shadow-lg transition duration-300 flex items-center justify-center gap-2 disabled:opacity-50"
-                        >
-                            <BsWhatsapp size={18} className="text-grey-400" />
-                            <span>{loading ? 'Processing...' : 'Send via WhatsApp'}</span>
-                        </button>
-                        <button
                             type="button"
                             onClick={handlePayNow}
-                            disabled={paymentLoading || loading}
+                            disabled={paymentLoading}
                             className="flex-1 bg-blue-600 text-white py-3 rounded-lg font-bold hover:bg-blue-700 transition duration-300 disabled:opacity-50"
                         >
                             {paymentLoading ? 'Opening Payment...' : 'Pay Now (Razorpay)'}
@@ -766,7 +670,7 @@ Thank you!
                         <button
                             type="button"
                             onClick={onClose}
-                            disabled={loading || paymentLoading}
+                            disabled={paymentLoading}
                             className="flex-1 bg-gray-300 text-gray-800 py-3 rounded-lg font-bold hover:bg-gray-400 transition duration-300 disabled:opacity-50"
                         >
                             Cancel
@@ -775,10 +679,7 @@ Thank you!
 
                     <div className="space-y-1 pb-2">
                         <p className="text-xs font-bold text-center text-gray-600">
-                            Note: Your booking will be saved before WhatsApp or payment.
-                        </p>
-                        <p className="text-xs text-center text-gray-500">
-                            You can either send your booking via WhatsApp or pay securely online using Razorpay.
+                            Note: Your booking will be confirmed securely online using Razorpay.
                         </p>
                     </div>
                 </form>

@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react'
 import axios from 'axios'
 import BookingModal from './BookingModal'
-import { Calendar, MapPin, Users, DollarSign, Feather, Eye, Snowflake, Bird, MountainSnow, PawPrint } from 'lucide-react'
+import { Calendar, MapPin, Users, DollarSign, Feather, Eye, Snowflake, Bird, MountainSnow, PawPrint, X } from 'lucide-react'
 import { useContext } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { AppContext } from '../context/AppContext'
@@ -91,7 +91,8 @@ const UpcomingTours = () => {
                 'Transport',
                 'Professional Guide',
                 'Travel Insurance'
-            ]
+            ],
+            totalSeats: tour.availableSeats // ✅ Pass total seats
         }
         const lockedDate = `${tour.startDate} - ${tour.endDate}`
         setSelectedTour({ name: tour.tourName, details: tourDetails, id: tour._id, lockedDate })
@@ -180,16 +181,46 @@ const UpcomingTours = () => {
 
             </h2>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 gap-8">
-                {tours.map((tour, idx) => {
+                {[...tours].sort((a, b) => {
+                    const getStatus = (tour) => {
+                        const remaining = seatsLeft[tour._id] !== undefined && seatsLeft[tour._id] !== null ? seatsLeft[tour._id] : 999
+                        const isFull = remaining <= 0
+
+                        // Check 7-day closure
+                        const now = new Date()
+                        const start = new Date(tour.startDate)
+                        const diffDays = Math.ceil((start - now) / (1000 * 60 * 60 * 24))
+                        const isClosed = diffDays <= 7
+
+                        if (isFull || isClosed) return 0 // Low priority (Bottom)
+                        return 1 // High priority (Top)
+                    }
+
+                    const statusA = getStatus(a)
+                    const statusB = getStatus(b)
+
+                    if (statusA !== statusB) return statusB - statusA // 1 before 0
+                    return new Date(a.startDate) - new Date(b.startDate) // Earliest first
+                }).map((tour, idx) => {
                     const spanClass = getSpanClass(idx, tours.length)
                     // small screens: all cards full-width with same height (h-64)
                     // md+ screens: use larger heights depending on whether item spans two columns
                     const heightClass = spanClass ? 'h-64 md:h-96' : 'h-64 md:h-80'
 
+                    const seatsAvailable = seatsLeft[tour._id]
+                    const isFull = seatsAvailable === 0
+
+                    // Check if booking should be closed (start date within 7 days)
+                    const now = new Date();
+                    const startDate = new Date(tour.startDate);
+                    const diffTime = startDate - now;
+                    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+                    const isBookingClosed = diffDays <= 7;
+
                     return (
                         <div
                             key={tour._id}
-                            className={`${spanClass} relative rounded-lg overflow-hidden shadow-lg group`}
+                            className={`${spanClass} relative rounded-lg overflow-hidden shadow-lg group transition-all duration-300 ${isFull ? 'grayscale brightness-75' : ''}`}
                             style={{ backgroundImage: tour.image ? `url(${tour.image})` : undefined, backgroundSize: 'cover', backgroundPosition: 'center', backgroundColor: tour.image ? undefined : '#f8fafc' }}
                         >
                             <div className="absolute inset-0 bg-gradient-to-t from-black/65 to-transparent"></div>
@@ -217,12 +248,22 @@ const UpcomingTours = () => {
                                 <p className="text-white/90 text-sm line-clamp-2">{(tour.description || '').slice(0, 160)}{(tour.description || '').length > 160 ? '...' : ''}</p>
 
                                 <div className="mt-4 flex items-center gap-3">
-                                    <button
-                                        onClick={() => handleBookClick(tour)}
-                                        className="bg-white text-blue-700 px-4 py-2 rounded-lg font-semibold hover:bg-gray-100 transition inline-flex items-center gap-2"
-                                    >
-                                        <Calendar size={16} /> Book Now
-                                    </button>
+                                    {isFull ? (
+                                        <span className="bg-red-600/90 text-white px-4 py-2 rounded-lg font-bold inline-flex items-center gap-2 cursor-not-allowed">
+                                            <X size={16} /> Sold Out
+                                        </span>
+                                    ) : isBookingClosed ? (
+                                        <span className="bg-gray-500/90 text-white px-4 py-2 rounded-lg font-bold inline-flex items-center gap-2 cursor-not-allowed">
+                                            <X size={16} /> Booking Closed
+                                        </span>
+                                    ) : (
+                                        <button
+                                            onClick={() => handleBookClick(tour)}
+                                            className="bg-white text-blue-700 px-4 py-2 rounded-lg font-semibold hover:bg-gray-100 transition inline-flex items-center gap-2"
+                                        >
+                                            <Calendar size={16} /> Book Now
+                                        </button>
+                                    )}
 
                                     <button
                                         onClick={() => handleViewClick(tour)}

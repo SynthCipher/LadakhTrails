@@ -18,7 +18,7 @@ const TermsConditions = () => {
                     <div>
                         <h2 className="text-2xl font-bold text-gray-800 mb-4">1. Introduction</h2>
                         <p className="text-gray-700 leading-relaxed">
-                            These Terms and Conditions ("Terms") govern your booking and participation in tours and services offered by Namgail Tours ("Company"). By booking with us, you agree to abide by these terms. Please read them carefully.
+                            These Terms and Conditions ("Terms") govern your booking and participation in tours and services offered by Ladakh Trails ("Company"). By booking with us, you agree to abide by these terms. Please read them carefully.
                         </p>
                     </div>
 
@@ -26,7 +26,7 @@ const TermsConditions = () => {
                     <div>
                         <h2 className="text-2xl font-bold text-gray-800 mb-4">2. Booking & Reservations</h2>
                         <ul className="space-y-3 text-gray-700">
-                            <li><strong>Booking Process:</strong> Bookings are confirmed upon receipt of 30% advance payment. A booking confirmation email will be sent immediately.</li>
+                            <li><strong>Booking Process:</strong> Bookings are confirmed upon receipt of a <strong>non-refundable 30% advance payment</strong>. A booking confirmation email will be sent immediately.</li>
                             <li><strong>Balance Payment:</strong> The remaining 70% must be paid 15 days before tour departure.</li>
                             <li><strong>Documentation:</strong> Provide valid identification and travel documents. We are not responsible for immigration issues.</li>
                             <li><strong>Group Size:</strong> Minimum 2 participants per tour. Groups larger than 20 require special arrangements.</li>
@@ -37,10 +37,11 @@ const TermsConditions = () => {
                     <div>
                         <h2 className="text-2xl font-bold text-gray-800 mb-4">3. Cancellation Policy</h2>
                         <ul className="space-y-3 text-gray-700">
-                            <li><strong>More than 30 days:</strong> Full refund minus 5% administrative charge</li>
-                            <li><strong>15-30 days:</strong> 50% refund of tour cost</li>
-                            <li><strong>Less than 15 days:</strong> No refund possible</li>
-                            <li><strong>No-show:</strong> 100% forfeiture of booking amount</li>
+                            <li><strong>Advance Payment:</strong> The 30% booking advance is strictly <strong>non-refundable</strong> under any circumstances.</li>
+                            <li><strong>30 Days or More:</strong> Full refund of remaining balance (amount paid minus the 30% advance).</li>
+                            <li><strong>15 to 30 Days:</strong> 50% refund of the total tour cost (if full payment was made).</li>
+                            <li><strong>7 to 15 Days:</strong> 30% refund of the total tour cost (if full payment was made).</li>
+                            <li><strong>Less than 7 Days:</strong> No refund possible.</li>
                         </ul>
                     </div>
 
@@ -78,7 +79,7 @@ const TermsConditions = () => {
                     <div>
                         <h2 className="text-2xl font-bold text-gray-800 mb-4">6. Liability Limitation</h2>
                         <p className="text-gray-700 leading-relaxed">
-                            Namgail Tours is not responsible for:
+                            Ladakh Trails is not responsible for:
                         </p>
                         <ul className="space-y-2 text-gray-700 list-disc list-inside mt-3">
                             <li>Loss, theft, or damage to personal belongings</li>
@@ -124,7 +125,7 @@ const TermsConditions = () => {
                     <div>
                         <h2 className="text-2xl font-bold text-gray-800 mb-4">9. Intellectual Property</h2>
                         <p className="text-gray-700 leading-relaxed">
-                            Photos and videos taken during tours may be used by Namgail Tours for promotional purposes. If you object, please inform us in advance.
+                            Photos and videos taken during tours may be used by Ladakh Trails for promotional purposes. If you object, please inform us in advance.
                         </p>
                     </div>
 
