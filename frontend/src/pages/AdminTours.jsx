@@ -400,7 +400,7 @@ const AdminTours = () => {
                                 onChange={(e) => setEmail(e.target.value)}
                                 required
                                 className="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:border-blue-500 focus:outline-none transition"
-                                placeholder="admin@example.com"
+                                placeholder="Enter admin email"
                             />
                         </div>
                         <div>
